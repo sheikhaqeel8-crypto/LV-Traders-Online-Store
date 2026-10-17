@@ -174,7 +174,6 @@
     let currentCategory = 'All';
     let tempBulkImages = [];
 
-    // صفحہ فوراً رینڈر کریں
     window.onload = function() {
       renderApp();
     };
@@ -202,16 +201,16 @@
         container.innerHTML = `
           <div class="auth-card">
             <h2>LV TRADERS - WHOLESALE</h2>
-            <p>Please enter your details to request access to the store.</p>
-            <input type="text" id="regName" class="input-field" placeholder="Your Name / Owner Name">
-            <input type="text" id="regShop" class="input-field" placeholder="Shop Name & City">
+            <p>Please enter your details to access the store.</p>
+            <input type="text" id="regName" class="input-field" placeholder="Your Name / Shop Name">
             <input type="tel" id="regPhone" class="input-field" placeholder="Mobile / WhatsApp Number">
-            <button class="primary-btn" onclick="registerUser()">Request Store Access</button>
+            <button class="primary-btn" onclick="registerUser()">Login / Request Access</button>
           </div>
         `;
         return;
       }
 
+      // Check approval status from latest local/synced data
       const activeCust = customers.find(c => c.phone === currentUser.phone);
       if (!activeCust || !activeCust.approved) {
         headerCategories.style.display = 'none';
@@ -268,22 +267,23 @@
 
     function registerUser() {
       const name = document.getElementById('regName').value.trim();
-      const shop = document.getElementById('regShop').value.trim();
       const phone = document.getElementById('regPhone').value.trim();
-      if (!name || !shop || !phone) { alert("Please fill in all fields!"); return; }
+      if (!name || !phone) { alert("Please fill in all fields!"); return; }
 
       let existing = customers.find(c => c.phone === phone);
       if (!existing) {
-        customers.push({ name, shop, phone, approved: false });
+        customers.push({ name: name, shop: name, phone: phone, approved: false });
+      } else {
+        existing.name = name;
       }
 
       try {
         localStorage.setItem('lv_customers', JSON.stringify(customers));
-        currentUser = { name, phone };
+        currentUser = { name: name, phone: phone };
         localStorage.setItem('lv_user', JSON.stringify(currentUser));
       } catch(e) {}
 
-      alert("Request sent successfully! Waiting for Admin Approval.");
+      alert("Logged in successfully! Waiting for Admin Approval.");
       renderApp();
     }
 
@@ -322,7 +322,7 @@
       customers.forEach((c, idx) => {
         custHtml += `
           <div class="user-row" style="display:flex; justify-content:space-between; align-items:center;">
-            <div><b>${c.name}</b> (${c.shop})<br><small>${c.phone}</small></div>
+            <div><b>${c.name}</b><br><small>${c.phone}</small></div>
             <div>
               ${c.approved ? '<span style="color:#2e7d32; font-size:11px; margin-right:5px; font-weight:bold;">Approved</span>' : `<button class="btn-approve" onclick="approveCust(${idx})">Approve</button>`}
               <button class="btn-remove" onclick="removeCust(${idx})">Remove</button>
@@ -397,15 +397,13 @@
     function handleBulkFiles(input) {
       tempBulkImages = [];
       if (!input.files) return;
-      Array.from(input.files).forEach((file) => {
+      Array.from(input.files).forEach((file, index) => {
         const reader = new FileReader();
         reader.onload = function(e) {
-          let cleanName = file.name.replace(/^file_[a-z0-9_]+/i, '').replace(/\.[^/.]+$/, "").trim();
-          if (!cleanName || cleanName.length < 2) cleanName = "Product Item";
-
+          let nextNum = products.length + tempBulkImages.length + 1;
           tempBulkImages.push({
             dataUrl: e.target.result,
-            name: cleanName,
+            name: `Product Item ${nextNum}`,
             cat: 'Hats'
           });
           renderAdminPanel();
