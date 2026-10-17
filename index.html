@@ -21,7 +21,7 @@
     .header-actions { display: flex; gap: 6px; align-items: center; }
     .top-btn {
       background: rgba(0,0,0,0.35); border: 1px solid #ff8a80; color: #fff;
-      padding: 6px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;
+      padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;
     }
     .bill-box {
       background: rgba(0,0,0,0.35); padding: 4px 10px; border-radius: 8px;
@@ -60,12 +60,10 @@
       border: 1px solid #bbb; color: #222; border-radius: 8px; font-size: 14px;
     }
     .primary-btn {
-      width: 100%; padding: 12px; background: linear-gradient(90deg, #c62828, #6a1b9a);
+      width: 100%; padding: 13px; background: linear-gradient(90deg, #c62828, #6a1b9a);
       border: none; color: #fff; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 15px; margin-top: 6px;
     }
-    .wa-green-btn {
-      background: linear-gradient(90deg, #2e7d32, #1b5e20);
-    }
+    .wa-green-btn { background: linear-gradient(90deg, #2e7d32, #1b5e20); }
 
     .product-item {
       background: #ffffff; margin-bottom: 18px; border-radius: 12px;
@@ -117,7 +115,7 @@
       background: #f9f9f9; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #eee;
     }
     .sm-btn { border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; color: #fff; font-weight: bold; }
-    .sync-badge { font-size: 11px; color: #ffeb3b; display: block; margin-top: 2px; }
+    .sync-badge { font-size: 11px; color: #81c784; display: block; margin-top: 2px; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -127,11 +125,11 @@
     <div class="header-top">
       <div>
         <div class="brand">LV TRADERS</div>
-        <span id="syncStatus" class="sync-badge">● Connecting...</span>
+        <span id="syncStatus" class="sync-badge">● Ready</span>
       </div>
       <div class="header-actions">
-        <button class="top-btn" onclick="openAdminPrompt()">⚙️ Admin</button>
-        <button class="top-btn" id="logoutBtn" onclick="logoutUser()" style="display:none;">Logout</button>
+        <button type="button" class="top-btn" onclick="showAdminLoginBox()">⚙️ Admin</button>
+        <button type="button" class="top-btn" id="logoutBtn" onclick="logoutUser()" style="display:none;">Logout</button>
       </div>
       <div class="bill-box">
         <div class="bill-amount">Rs. <span id="totalBill">0</span></div>
@@ -139,34 +137,43 @@
       </div>
     </div>
     <div class="categories" id="categoryBar">
-      <button class="cat-btn active" onclick="filterCategory('All', this)">All Items</button>
-      <button class="cat-btn" onclick="filterCategory('Hats', this)">Hats</button>
-      <button class="cat-btn" onclick="filterCategory('Turbans', this)">Turbans</button>
-      <button class="cat-btn" onclick="filterCategory('Socks', this)">Socks</button>
-      <button class="cat-btn" onclick="filterCategory('Warmer Suits', this)">Warmer Suits</button>
-      <button class="cat-btn" onclick="filterCategory('Mufflers', this)">Mufflers</button>
-      <button class="cat-btn" onclick="filterCategory('Trousers', this)">Trousers</button>
+      <button type="button" class="cat-btn active" onclick="filterCategory('All', this)">All Items</button>
+      <button type="button" class="cat-btn" onclick="filterCategory('Hats', this)">Hats</button>
+      <button type="button" class="cat-btn" onclick="filterCategory('Turbans', this)">Turbans</button>
+      <button type="button" class="cat-btn" onclick="filterCategory('Socks', this)">Socks</button>
+      <button type="button" class="cat-btn" onclick="filterCategory('Warmer Suits', this)">Warmer Suits</button>
+      <button type="button" class="cat-btn" onclick="filterCategory('Mufflers', this)">Mufflers</button>
+      <button type="button" class="cat-btn" onclick="filterCategory('Trousers', this)">Trousers</button>
     </div>
   </div>
 
   <div class="container">
     
-    <!-- 1. LOGIN / SIGNUP SCREEN (VISIBLE BY DEFAULT SO PAGE NEVER BLANKS) -->
+    <!-- ADMIN PASSWORD BOX (ON-SCREEN SO MOBILE NEVER BLOCKS IT) -->
+    <div id="viewAdminAuth" class="card-box" style="display:none;">
+      <h2>⚙️ Admin Login</h2>
+      <p>ایڈمن پینل کھولنے کے لیے پاس ورڈ درج کریں۔</p>
+      <input type="password" id="inpAdminPass" class="input-field" placeholder="Enter Admin Password">
+      <button type="button" class="primary-btn" onclick="verifyAdminPass()">Open Admin Panel</button>
+      <button type="button" class="primary-btn" style="background:#777; margin-top:8px;" onclick="updateScreenView()">Cancel</button>
+    </div>
+
+    <!-- 1. LOGIN / SIGNUP SCREEN -->
     <div id="viewLogin" class="card-box">
       <h2>LV TRADERS - WHOLESALE</h2>
       <p>اپنا نام اور واٹس ایپ نمبر درج کر کے سٹور اوپن کریں۔ اگر آپ کا نمبر پہلے سے منظور شدہ ہے تو سٹور فوراً کھل جائے گا۔</p>
       <input type="text" id="inpName" class="input-field" placeholder="Your Name / Shop Name">
       <input type="tel" id="inpPhone" class="input-field" placeholder="Mobile / WhatsApp Number (e.g. 03001234567)">
-      <button class="primary-btn" onclick="handleUserLogin()">Login / Request Store Access</button>
+      <button type="button" class="primary-btn" onclick="handleUserLogin()">Login / Request Store Access</button>
     </div>
 
     <!-- 2. APPROVAL PENDING SCREEN -->
     <div id="viewPending" class="card-box" style="display:none;">
       <h2>⏳ Approval Pending</h2>
-      <p>آپ کی درخواست چلی گئی ہے۔ ایڈمن سے فوری اپروول لینے کے لیے نیچے سبز بٹن دبا کر واٹس ایپ بزنس پر میسج بھیجیں۔</p>
-      <button class="primary-btn wa-green-btn" onclick="sendApprovalWhatsApp()">📲 Send Request on WhatsApp Business</button>
-      <button class="primary-btn" onclick="checkCloudNow()" style="background:#1976d2; margin-top:10px;">🔄 Check Status / Refresh</button>
-      <button class="primary-btn" onclick="logoutUser()" style="background:#512da8; margin-top:10px;">Switch Account / Logout</button>
+      <p>آپ کی درخواست درج ہو گئی ہے۔ ایڈمن سے فوری اپروول لینے کے لیے نیچے سبز بٹن دبا کر واٹس ایپ بزنس پر میسج بھیجیں۔</p>
+      <button type="button" class="primary-btn wa-green-btn" onclick="sendApprovalWhatsApp()">📲 Send Request on WhatsApp Business</button>
+      <button type="button" class="primary-btn" onclick="checkCloudNow()" style="background:#1976d2; margin-top:10px;">🔄 Check Status / Refresh</button>
+      <button type="button" class="primary-btn" onclick="logoutUser()" style="background:#512da8; margin-top:10px;">Switch Account / Logout</button>
     </div>
 
     <!-- 3. STORE PRODUCTS SCREEN -->
@@ -179,9 +186,9 @@
       <div class="admin-section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
           <h2 style="color:#880e4f; font-size:18px;">LV Traders - Admin Panel</h2>
-          <button class="sm-btn" style="background:#512da8;" onclick="closeAdminPanel()">← Back to Store</button>
+          <button type="button" class="sm-btn" style="background:#512da8;" onclick="closeAdminPanel()">← Back to Store</button>
         </div>
-        <p style="font-size:12px; color:#666;">تصاویر آٹومیٹک چھوٹے سائز میں کمپریس ہو کر کلاؤڈ پر سیو ہوتی ہیں تاکہ کبھی ڈیلیٹ نہ ہوں۔</p>
+        <p style="font-size:12px; color:#666;">تصاویر آٹومیٹک چھوٹے سائز میں کمپریس ہو کر سیو ہوتی ہیں تاکہ کبھی ڈیلیٹ نہ ہوں۔</p>
       </div>
 
       <div class="admin-section">
@@ -193,7 +200,7 @@
         <h3>➕ Upload New Products from Gallery</h3>
         <input type="file" id="galleryInput" multiple accept="image/*" class="input-field" style="padding:8px;" onchange="prepareGalleryFiles(this)">
         <div id="uploadPreviews"></div>
-        <button id="publishBtn" class="primary-btn" style="display:none;" onclick="publishAllProducts()">🚀 Publish All to Live Store</button>
+        <button type="button" id="publishBtn" class="primary-btn" style="display:none;" onclick="publishAllProducts()">🚀 Publish All to Live Store</button>
       </div>
 
       <div class="admin-section">
@@ -206,25 +213,12 @@
 
   <!-- BOTTOM WHATSAPP ORDER BAR -->
   <div class="bottom-bar" id="bottomBar">
-    <button class="wa-order-btn" onclick="sendOrderOnWhatsApp()">📲 Send PDF Bill & Order on WhatsApp</button>
+    <button type="button" class="wa-order-btn" onclick="sendOrderOnWhatsApp()">📲 Send PDF Bill & Order on WhatsApp</button>
   </div>
 
-  <!-- EXTERNAL SCRIPTS AT BOTTOM SO UI NEVER BLOCKS -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
+  <!-- CORE APP LOGIC FIRST (SO BUTTONS ALWAYS WORK INSTANTLY) -->
   <script>
     const ADMIN_WA = "923335180450";
-    const firebaseConfig = {
-      apiKey: "AIzaSyBZXptS4FaUUNprC8lJ7dAB2abCLISJF7M",
-      authDomain: "lv-traders-store-2408c.firebaseapp.com",
-      projectId: "lv-traders-store-2408c",
-      storageBucket: "lv-traders-store-2408c.firebasestorage.app",
-      messagingSenderId: "735144169670",
-      appId: "1:735144169670:web:3d2372fa828cddd72d87c7"
-    };
-
     let db = null;
     let products = [];
     let customers = [];
@@ -234,7 +228,6 @@
     let isAdminView = false;
     let currentUser = null;
 
-    // Load safe local user info
     try {
       const savedUser = localStorage.getItem('lv_active_user');
       if (savedUser) currentUser = JSON.parse(savedUser);
@@ -242,104 +235,34 @@
       if (savedProds) products = JSON.parse(savedProds);
       const savedCusts = localStorage.getItem('lv_cached_custs');
       if (savedCusts) customers = JSON.parse(savedCusts);
-    } catch (e) {
-      localStorage.clear();
-    }
-
-    // Initialize UI immediately
-    updateScreenView();
-
-    // Connect Firebase safely
-    try {
-      if (typeof firebase !== 'undefined') {
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-        db = firebase.firestore();
-        startRealtimeListeners();
-      } else {
-        document.getElementById('syncStatus').innerText = "● Local Mode";
-      }
-    } catch (err) {
-      document.getElementById('syncStatus').innerText = "● Offline Mode";
-    }
-
-    function startRealtimeListeners() {
-      if (!db) return;
-
-      // Listen to Store Data Document
-      db.collection("lv_store_v2").doc("global_state").onSnapshot((doc) => {
-        document.getElementById('syncStatus').innerText = "● Cloud Live";
-        document.getElementById('syncStatus').style.color = "#81c784";
-        if (doc.exists) {
-          const data = doc.data();
-          if (Array.isArray(data.products)) {
-            products = data.products;
-            try { localStorage.setItem('lv_cached_prods', JSON.stringify(products)); } catch(e){}
-          }
-          if (Array.isArray(data.customers)) {
-            customers = data.customers;
-            try { localStorage.setItem('lv_cached_custs', JSON.stringify(customers)); } catch(e){}
-          }
-          updateScreenView();
-        }
-      }, (err) => {
-        document.getElementById('syncStatus').innerText = "● Sync Error";
-      });
-    }
-
-    function saveStateToCloud(cb) {
-      try {
-        localStorage.setItem('lv_cached_prods', JSON.stringify(products));
-        localStorage.setItem('lv_cached_custs', JSON.stringify(customers));
-      } catch(e) {}
-
-      if (!db) {
-        if (cb) cb();
-        return;
-      }
-
-      document.getElementById('syncStatus').innerText = "● Saving...";
-      db.collection("lv_store_v2").doc("global_state").set({
-        products: products,
-        customers: customers,
-        updatedAt: Date.now()
-      }).then(() => {
-        document.getElementById('syncStatus').innerText = "● Cloud Saved";
-        if (cb) cb();
-      }).catch((err) => {
-        alert("Cloud Save Note: Check Firebase Firestore Rules if data doesn't show on other phone.");
-        if (cb) cb();
-      });
-    }
+    } catch (e) {}
 
     function cleanPhone(p) {
       return String(p || '').replace(/\D/g, '').slice(-10);
     }
 
-    function updateScreenView() {
-      const vLogin = document.getElementById('viewLogin');
-      const vPending = document.getElementById('viewPending');
-      const vStore = document.getElementById('viewStore');
-      const vAdmin = document.getElementById('viewAdmin');
-      const catBar = document.getElementById('categoryBar');
-      const botBar = document.getElementById('bottomBar');
-      const outBtn = document.getElementById('logoutBtn');
+    function hideAllViews() {
+      document.getElementById('viewAdminAuth').style.display = 'none';
+      document.getElementById('viewLogin').style.display = 'none';
+      document.getElementById('viewPending').style.display = 'none';
+      document.getElementById('viewStore').style.display = 'none';
+      document.getElementById('viewAdmin').style.display = 'none';
+      document.getElementById('categoryBar').style.display = 'none';
+      document.getElementById('bottomBar').style.display = 'none';
+    }
 
-      vLogin.style.display = 'none';
-      vPending.style.display = 'none';
-      vStore.style.display = 'none';
-      vAdmin.style.display = 'none';
-      catBar.style.display = 'none';
-      botBar.style.display = 'none';
-      outBtn.style.display = currentUser || isAdminView ? 'block' : 'none';
+    function updateScreenView() {
+      hideAllViews();
+      document.getElementById('logoutBtn').style.display = (currentUser || isAdminView) ? 'block' : 'none';
 
       if (isAdminView) {
-        vAdmin.style.display = 'block';
+        document.getElementById('viewAdmin').style.display = 'block';
         renderAdminLists();
         return;
       }
 
       if (!currentUser) {
-        vLogin.style.display = 'block';
+        document.getElementById('viewLogin').style.display = 'block';
         return;
       }
 
@@ -347,15 +270,40 @@
       const matchedCustomer = customers.find(c => cleanPhone(c.phone) === myCleanPhone);
 
       if (!matchedCustomer || !matchedCustomer.approved) {
-        vPending.style.display = 'block';
+        document.getElementById('viewPending').style.display = 'block';
         return;
       }
 
-      // Approved Customer View
-      catBar.style.display = 'flex';
-      botBar.style.display = 'block';
-      vStore.style.display = 'block';
+      document.getElementById('categoryBar').style.display = 'flex';
+      document.getElementById('bottomBar').style.display = 'block';
+      document.getElementById('viewStore').style.display = 'block';
       renderProductsFeed();
+    }
+
+    function showAdminLoginBox() {
+      if (isAdminView) {
+        isAdminView = false;
+        updateScreenView();
+        return;
+      }
+      hideAllViews();
+      document.getElementById('inpAdminPass').value = '';
+      document.getElementById('viewAdminAuth').style.display = 'block';
+    }
+
+    function verifyAdminPass() {
+      const pass = document.getElementById('inpAdminPass').value.trim();
+      if (pass === "admin123") {
+        isAdminView = true;
+        updateScreenView();
+      } else {
+        alert("غلط پاس ورڈ! دوبارہ کوشش کریں۔");
+      }
+    }
+
+    function closeAdminPanel() {
+      isAdminView = false;
+      updateScreenView();
     }
 
     function handleUserLogin() {
@@ -379,27 +327,15 @@
       currentUser = { name: existing.name, phone: existing.phone };
       try { localStorage.setItem('lv_active_user', JSON.stringify(currentUser)); } catch(e){}
 
-      saveStateToCloud(() => {
-        updateScreenView();
-      });
+      // Switch screen IMMEDIATELY without waiting for cloud
+      updateScreenView();
+      saveStateToCloud();
     }
 
     function sendApprovalWhatsApp() {
       if (!currentUser) return;
       const msg = `*LV TRADERS - STORE ACCESS REQUEST*%0A*Customer:* ${currentUser.name}%0A*Phone:* ${currentUser.phone}%0APlease approve my number for wholesale store access.`;
       window.open(`https://wa.me/${ADMIN_WA}?text=${msg}`, '_blank');
-    }
-
-    function checkCloudNow() {
-      if (!db) { updateScreenView(); return; }
-      db.collection("lv_store_v2").doc("global_state").get().then((doc) => {
-        if (doc.exists) {
-          const data = doc.data();
-          if (data.customers) customers = data.customers;
-          if (data.products) products = data.products;
-          updateScreenView();
-        }
-      });
     }
 
     function logoutUser() {
@@ -409,24 +345,46 @@
       updateScreenView();
     }
 
-    function openAdminPrompt() {
-      if (isAdminView) {
-        isAdminView = false;
-        updateScreenView();
-        return;
-      }
-      const pass = prompt("Enter Admin Password:");
-      if (pass === "admin123") {
-        isAdminView = true;
-        updateScreenView();
-      } else if (pass !== null) {
-        alert("غلط پاس ورڈ!");
-      }
+    function saveStateToCloud() {
+      try {
+        localStorage.setItem('lv_cached_prods', JSON.stringify(products));
+        localStorage.setItem('lv_cached_custs', JSON.stringify(customers));
+      } catch(e) {}
+
+      if (!db) return;
+
+      document.getElementById('syncStatus').innerText = "● Saving...";
+      db.collection("lv_store_v2").doc("global_state").set({
+        products: products,
+        customers: customers,
+        updatedAt: Date.now()
+      }).then(() => {
+        document.getElementById('syncStatus').innerText = "● Cloud Synced";
+      }).catch((err) => {
+        document.getElementById('syncStatus').innerText = "● Local Saved";
+      });
     }
 
-    function closeAdminPanel() {
-      isAdminView = false;
-      updateScreenView();
+    function checkCloudNow() {
+      if (!db) { updateScreenView(); return; }
+      document.getElementById('syncStatus').innerText = "● Checking...";
+      db.collection("lv_store_v2").doc("global_state").get().then((doc) => {
+        if (doc.exists) {
+          const data = doc.data();
+          if (Array.isArray(data.customers)) {
+            customers = data.customers;
+            try { localStorage.setItem('lv_cached_custs', JSON.stringify(customers)); } catch(e){}
+          }
+          if (Array.isArray(data.products)) {
+            products = data.products;
+            try { localStorage.setItem('lv_cached_prods', JSON.stringify(products)); } catch(e){}
+          }
+        }
+        document.getElementById('syncStatus').innerText = "● Cloud Live";
+        updateScreenView();
+      }).catch(() => {
+        updateScreenView();
+      });
     }
 
     function renderProductsFeed() {
@@ -454,9 +412,9 @@
                   <div class="price-val">Rs. ${Number(p.price).toLocaleString()}</div>
                 </div>
                 <div class="qty-controls">
-                  <button class="qty-btn btn-minus" onclick="changeCartQty('${p.id}', -1)">−</button>
+                  <button type="button" class="qty-btn btn-minus" onclick="changeCartQty('${p.id}', -1)">−</button>
                   <div class="qty-display">${q} Pkt</div>
-                  <button class="qty-btn btn-plus" onclick="changeCartQty('${p.id}', 1)">+</button>
+                  <button type="button" class="qty-btn btn-plus" onclick="changeCartQty('${p.id}', 1)">+</button>
                 </div>
               </div>
             </div>
@@ -498,11 +456,18 @@
       document.getElementById('custCount').innerText = customers.length;
       document.getElementById('prodCount').innerText = products.length;
 
-      // Render Customers
       const cList = document.getElementById('adminCustomersList');
       if (customers.length === 0) {
         cList.innerHTML = `<p style="font-size:12px; color:#777;">ابھی کسی کسٹمر نے ریکوئسٹ نہیں بھیجی۔</p>`;
       } else {
         let ch = '';
         customers.forEach((c, idx) => {
-          ch 
+          ch += `
+            <div class="row-item" style="display:flex; justify-content:space-between; align-items:center;">
+              <div><b>${c.name}</b><br><small>${c.phone}</small></div>
+              <div style="display:flex; gap:6px; align-items:center;">
+                ${c.approved 
+                  ? `<span style="color:#2e7d32; font-size:12px; font-weight:bold;">✔ Approved</span>` 
+                  : `<button type="button" class="sm-btn" style="background:#2e7d32;" onclick="approveCustomer(${idx})">Approve</button>`}
+                <button type="button" class="sm-btn" style="background:#c62828;" onclick="deleteCustomer(${idx})">Remove</button>
+        
