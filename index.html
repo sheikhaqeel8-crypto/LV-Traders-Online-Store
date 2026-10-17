@@ -128,8 +128,8 @@
         <span id="syncStatus" class="sync-badge">● Ready</span>
       </div>
       <div class="header-actions">
-        <button type="button" id="btnAdminTop" class="top-btn">⚙️ Admin</button>
-        <button type="button" id="btnLogout" class="top-btn" style="display:none;">Logout</button>
+        <button type="button" class="top-btn" onclick="showAdminLoginBox()">⚙️ Admin</button>
+        <button type="button" id="btnLogout" class="top-btn" onclick="logoutUser()" style="display:none;">Logout</button>
       </div>
       <div class="bill-box">
         <div class="bill-amount">Rs. <span id="totalBill">0</span></div>
@@ -137,13 +137,13 @@
       </div>
     </div>
     <div class="categories" id="categoryBar">
-      <button type="button" class="cat-btn active" data-cat="All">All Items</button>
-      <button type="button" class="cat-btn" data-cat="Hats">Hats</button>
-      <button type="button" class="cat-btn" data-cat="Turbans">Turbans</button>
-      <button type="button" class="cat-btn" data-cat="Socks">Socks</button>
-      <button type="button" class="cat-btn" data-cat="Warmer Suits">Warmer Suits</button>
-      <button type="button" class="cat-btn" data-cat="Mufflers">Mufflers</button>
-      <button type="button" class="cat-btn" data-cat="Trousers">Trousers</button>
+      <button type="button" class="cat-btn active" onclick="filterCategory('All', this)">All Items</button>
+      <button type="button" class="cat-btn" onclick="filterCategory('Hats', this)">Hats</button>
+      <button type="button" class="cat-btn" onclick="filterCategory('Turbans', this)">Turbans</button>
+      <button type="button" class="cat-btn" onclick="filterCategory('Socks', this)">Socks</button>
+      <button type="button" class="cat-btn" onclick="filterCategory('Warmer Suits', this)">Warmer Suits</button>
+      <button type="button" class="cat-btn" onclick="filterCategory('Mufflers', this)">Mufflers</button>
+      <button type="button" class="cat-btn" onclick="filterCategory('Trousers', this)">Trousers</button>
     </div>
   </div>
 
@@ -154,8 +154,8 @@
       <h2>⚙️ Admin Login</h2>
       <p>ایڈمن پینل کھولنے کے لیے پاس ورڈ درج کریں۔</p>
       <input type="password" id="inpAdminPass" class="input-field" placeholder="Enter Admin Password">
-      <button type="button" id="btnVerifyAdmin" class="primary-btn">Open Admin Panel</button>
-      <button type="button" id="btnCancelAdmin" class="primary-btn" style="background:#777; margin-top:8px;">Cancel</button>
+      <button type="button" class="primary-btn" onclick="verifyAdminPass()">Open Admin Panel</button>
+      <button type="button" class="primary-btn" style="background:#777; margin-top:8px;" onclick="updateScreenView()">Cancel</button>
     </div>
 
     <!-- 1. LOGIN / SIGNUP SCREEN -->
@@ -164,16 +164,16 @@
       <p>اپنا نام اور واٹس ایپ نمبر درج کر کے سٹور اوپن کریں۔ اگر آپ کا نمبر پہلے سے منظور شدہ ہے تو سٹور فوراً کھل جائے گا۔</p>
       <input type="text" id="inpName" class="input-field" placeholder="Your Name / Shop Name">
       <input type="tel" id="inpPhone" class="input-field" placeholder="Mobile / WhatsApp Number (e.g. 03001234567)">
-      <button type="button" id="btnLoginUser" class="primary-btn">Login / Request Store Access</button>
+      <button type="button" class="primary-btn" onclick="handleUserLogin()">Login / Request Store Access</button>
     </div>
 
     <!-- 2. APPROVAL PENDING SCREEN -->
     <div id="viewPending" class="card-box" style="display:none;">
       <h2>⏳ Approval Pending</h2>
       <p>آپ کی درخواست درج ہو گئی ہے۔ ایڈمن سے فوری اپروول لینے کے لیے نیچے سبز بٹن دبا کر واٹس ایپ بزنس پر میسج بھیجیں۔</p>
-      <button type="button" id="btnSendWaReq" class="primary-btn wa-green-btn">📲 Send Request on WhatsApp Business</button>
-      <button type="button" id="btnCheckStatus" class="primary-btn" style="background:#1976d2; margin-top:10px;">🔄 Check Status / Refresh</button>
-      <button type="button" id="btnPendingLogout" class="primary-btn" style="background:#512da8; margin-top:10px;">Switch Account / Logout</button>
+      <button type="button" class="primary-btn wa-green-btn" onclick="sendApprovalWhatsApp()">📲 Send Request on WhatsApp Business</button>
+      <button type="button" class="primary-btn" onclick="checkCloudNow()" style="background:#1976d2; margin-top:10px;">🔄 Check Status / Refresh</button>
+      <button type="button" class="primary-btn" onclick="logoutUser()" style="background:#512da8; margin-top:10px;">Switch Account / Logout</button>
     </div>
 
     <!-- 3. STORE PRODUCTS SCREEN -->
@@ -186,7 +186,7 @@
       <div class="admin-section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
           <h2 style="color:#880e4f; font-size:18px;">LV Traders - Admin Panel</h2>
-          <button type="button" id="btnBackToStore" class="sm-btn" style="background:#512da8;">← Back to Store</button>
+          <button type="button" class="sm-btn" style="background:#512da8;" onclick="closeAdminPanel()">← Back to Store</button>
         </div>
         <p style="font-size:12px; color:#666;">تصاویر آٹومیٹک چھوٹے سائز میں کمپریس ہو کر سیو ہوتی ہیں تاکہ کبھی ڈیلیٹ نہ ہوں۔</p>
       </div>
@@ -198,9 +198,9 @@
 
       <div class="admin-section">
         <h3>➕ Upload New Products from Gallery</h3>
-        <input type="file" id="galleryInput" multiple accept="image/*" class="input-field" style="padding:8px;">
+        <input type="file" id="galleryInput" multiple accept="image/*" class="input-field" style="padding:8px;" onchange="prepareGalleryFiles(this)">
         <div id="uploadPreviews"></div>
-        <button type="button" id="publishBtn" class="primary-btn" style="display:none;">🚀 Publish All to Live Store</button>
+        <button type="button" id="publishBtn" class="primary-btn" style="display:none;" onclick="publishAllProducts()">🚀 Publish All to Live Store</button>
       </div>
 
       <div class="admin-section">
@@ -213,7 +213,7 @@
 
   <!-- BOTTOM WHATSAPP ORDER BAR -->
   <div class="bottom-bar" id="bottomBar">
-    <button type="button" id="btnSendOrder" class="wa-order-btn">📲 Send PDF Bill & Order on WhatsApp</button>
+    <button type="button" class="wa-order-btn" onclick="sendOrderOnWhatsApp()">📲 Send PDF Bill & Order on WhatsApp</button>
   </div>
 
   <!-- CORE APP LOGIC -->
@@ -411,9 +411,9 @@
                   <div class="price-val">Rs. ${Number(p.price).toLocaleString()}</div>
                 </div>
                 <div class="qty-controls">
-                  <button type="button" class="qty-btn btn-minus" data-id="${p.id}" data-delta="-1">−</button>
+                  <button type="button" class="qty-btn btn-minus" onclick="changeCartQty('${p.id}', -1)">−</button>
                   <div class="qty-display">${q} Pkt</div>
-                  <button type="button" class="qty-btn btn-plus" data-id="${p.id}" data-delta="1">+</button>
+                  <button type="button" class="qty-btn btn-plus" onclick="changeCartQty('${p.id}', 1)">+</button>
                 </div>
               </div>
             </div>
@@ -424,17 +424,13 @@
       recalcBill();
     }
 
-    document.addEventListener('click', function(e) {
-      if (e.target.classList.contains('qty-btn')) {
-        const id = e.target.getAttribute('data-id');
-        const delta = Number(e.target.getAttribute('data-delta'));
-        const curr = cartQty[id] || 0;
-        if (curr + delta >= 0) {
-          cartQty[id] = curr + delta;
-          renderProductsFeed();
-        }
+    function changeCartQty(id, delta) {
+      const curr = cartQty[id] || 0;
+      if (curr + delta >= 0) {
+        cartQty[id] = curr + delta;
+        renderProductsFeed();
       }
-    });
+    }
 
     function recalcBill() {
       let bill = 0, pkts = 0;
@@ -445,6 +441,14 @@
       });
       document.getElementById('totalBill').innerText = bill.toLocaleString();
       document.getElementById('totalPkts').innerText = pkts;
+    }
+
+    function filterCategory(cat, btnEl) {
+      currentCategory = cat;
+      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+      if (btnEl) btnEl.classList.add('active');
+      renderProductsFeed();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function renderAdminLists() {
@@ -472,12 +476,4 @@
         cList.innerHTML = ch;
       }
 
-      const pList = document.getElementById('adminProductsList');
-      if (products.length === 0) {
-        pList.innerHTML = `<p style="font-size:12px; color:#777;">کوئی پراڈکٹ اپلوڈ نہیں ہوئی۔</p>`;
-      } else {
-        let ph = '';
-        products.forEach((p) => {
-          ph += `
-            <div class="row-item" style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-              <img src="${p.img}" style="width:50px; height:50px; object-f
+      const pList = document.getElementById(
