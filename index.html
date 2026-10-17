@@ -211,7 +211,7 @@
           <div class="auth-card">
             <h2>⏳ Approval Pending</h2>
             <p>Your account is waiting for Admin Approval.</p>
-            <button class="primary-btn wa-req-btn" onclick="window.open('https://wa.me/?text=${waText}', '_blank')">📲 Send Approval to Admin WhatsApp</button>
+            <button class="primary-btn wa-req-btn" onclick="window.open('https://wa.me/923335180450?text=${waText}', '_blank')">📲 Send Approval to WhatsApp Business</button>
             <button class="primary-btn" onclick="adminDirectApprove()" style="background:#2e7d32; margin-top:10px;">✅ [Test] Auto-Approve (For testing)</button>
             <button class="primary-btn" onclick="logoutUser()" style="background:#512da8; margin-top:10px;">Switch Account / Logout</button>
           </div>
@@ -481,40 +481,4 @@
         let subtotal = p.qty * p.price;
         totalAmount += subtotal;
 
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`${index + 1}. ${p.name}`, 14, y);
-
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.text(`Category: ${p.category} | ${p.desc}`, 14, y + 5);
-        doc.text(`Ordered: ${p.qty} Pkts x Rs. ${p.price.toLocaleString()} = Rs. ${subtotal.toLocaleString()}`, 14, y + 10);
-
-        try {
-          doc.addImage(p.img, 'JPEG', 150, y - 2, 22, 22);
-        } catch(e) {}
-
-        doc.setDrawColor(200, 200, 200);
-        doc.line(14, y + 15, 196, y + 15);
-        y += 22;
-      });
-
-      y += 5;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(13);
-      doc.setTextColor(198, 40, 40);
-      doc.text(`TOTAL BILL: Rs. ${totalAmount.toLocaleString()}`, 14, y);
-
-      doc.save("LV_Traders_Order.pdf");
-
-      let msg = `*LV TRADERS - NEW ORDER*%0A*Customer:* ${currentUser ? currentUser.name : ''} (${currentUser ? currentUser.phone : ''})%0A------------------------%0A`;
-      selected.forEach((p, i) => {
-        msg += `${i+1}. ${p.name} - ${p.qty} Pkts (Rs.${p.qty * p.price})%0A`;
-      });
-      msg += `------------------------%0A*TOTAL: Rs. ${totalAmount.toLocaleString()}*%0A*(PDF Bill downloaded)*`;
-      window.open(`https://wa.me/?text=${msg}`, '_blank');
-    }
-  </script>
-</body>
-</html>
+        doc.setFont("h
