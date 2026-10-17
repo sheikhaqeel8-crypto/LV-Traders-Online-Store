@@ -4,10 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LV Traders - Wholesale PWA Store</title>
-  <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-  <!-- jsPDF Library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
@@ -117,6 +115,14 @@
     .user-row, .bulk-preview-row, .admin-prod-row {
       background: #1a0521; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #880e4f;
     }
+    .input-field {
+      width: 100%; padding: 10px; margin-bottom: 8px; background: #1a0521;
+      border: 1px solid #880e4f; color: #fff; border-radius: 6px; font-size: 13px;
+    }
+    .primary-btn {
+      width: 100%; padding: 10px; background: linear-gradient(90deg, #c62828, #6a1b9a);
+      border: none; color: #fff; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 14px;
+    }
     .btn-approve { background: #2e7d32; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
     .btn-remove { background: #c62828; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
   </style>
@@ -165,7 +171,9 @@
     
     let db = null;
     try {
-      firebase.initializeApp(firebaseConfig);
+      if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
       db = firebase.firestore();
     } catch(e) {
       console.log("Firebase init error:", e);
@@ -179,8 +187,11 @@
     let currentCategory = 'All';
     let tempBulkImages = [];
 
-    function fetchCloudData(callback) {
-      if (!db) { if (callback) callback(); return; }
+    // Immediately render first so screen is never blank
+    renderApp();
+
+    // Then fetch from cloud in background
+    if (db) {
       db.collection("store_data").doc("main_data").get().then((doc) => {
         if (doc.exists) {
           const data = doc.data();
@@ -192,11 +203,10 @@
             customers = data.customers;
             localStorage.setItem('lv_customers', JSON.stringify(customers));
           }
+          renderApp();
         }
-        if (callback) callback();
       }).catch((error) => {
-        console.log("Cloud fetch error, using local storage:", error);
-        if (callback) callback();
+        console.log("Cloud fetch error:", error);
       });
     }
 
@@ -220,90 +230,88 @@
     }
 
     function renderApp() {
-      fetchCloudData(() => {
-        const container = document.getElementById('mainContainer');
-        const bottomBar = document.getElementById('bottomBar');
-        const logoutBtn = document.getElementById('logoutBtn');
-        const headerCategories = document.getElementById('categoryBar');
+      const container = document.getElementById('mainContainer');
+      const bottomBar = document.getElementById('bottomBar');
+      const logoutBtn = document.getElementById('logoutBtn');
+      const headerCategories = document.getElementById('categoryBar');
 
-        if (isAdminLoggedIn) {
-          headerCategories.style.display = 'none';
-          bottomBar.style.display = 'none';
-          logoutBtn.style.display = 'block';
-          renderAdminPanel();
-          return;
-        }
-
-        if (!currentUser) {
-          headerCategories.style.display = 'none';
-          bottomBar.style.display = 'none';
-          logoutBtn.style.display = 'none';
-          container.innerHTML = `
-            <div class="auth-card">
-              <h2>LV TRADERS - WHOLESALE</h2>
-              <p>Enter your details to request access to the wholesale store.</p>
-              <input type="text" id="regName" class="input-field" placeholder="Your Name / Owner Name">
-              <input type="text" id="regShop" class="input-field" placeholder="Shop Name & City">
-              <input type="tel" id="regPhone" class="input-field" placeholder="Mobile / WhatsApp Number">
-              <button class="primary-btn" onclick="registerUser()">Request Store Access</button>
-            </div>
-          `;
-          return;
-        }
-
-        const activeCust = customers.find(c => c.phone === currentUser.phone);
-        if (!activeCust || !activeCust.approved) {
-          headerCategories.style.display = 'none';
-          bottomBar.style.display = 'none';
-          logoutBtn.style.display = 'block';
-          container.innerHTML = `
-            <div class="auth-card">
-              <h2>⏳ Approval Pending</h2>
-              <p>Your account is waiting for Admin Approval by LV Traders. You will get access once approved.</p>
-              <button class="primary-btn" onclick="logoutUser()" style="background:#4a148c; margin-top:15px;">Switch Account / Logout</button>
-            </div>
-          `;
-          return;
-        }
-
-        headerCategories.style.display = 'flex';
-        bottomBar.style.display = 'flex';
+      if (isAdminLoggedIn) {
+        headerCategories.style.display = 'none';
+        bottomBar.style.display = 'none';
         logoutBtn.style.display = 'block';
-        
-        let html = '<div class="feed-container">';
-        const filtered = currentCategory === 'All' ? products : products.filter(p => p.category === currentCategory);
-        
-        if (filtered.length === 0) {
-          html += '<div style="text-align:center; padding:50px 20px; color:#b39ddb;"><h3>No Products Live Yet</h3><p style="font-size:13px;">Admin has not uploaded any products yet.</p></div>';
-        }
+        renderAdminPanel();
+        return;
+      }
 
-        filtered.forEach(p => {
-          html += `
-            <div class="product-item">
-              <img src="${p.img}" class="product-img" alt="${p.name}">
-              <div class="product-info">
-                <span class="product-cat">${p.category}</span>
-                <div class="product-title">${p.name}</div>
-                <div class="product-desc">${p.desc}</div>
-                <div class="price-cart-row">
-                  <div>
-                    <div class="price-label">Packet Price</div>
-                    <div class="price-val">Rs. ${p.price.toLocaleString()}</div>
-                  </div>
-                  <div class="qty-controls">
-                    <button class="qty-btn btn-minus" onclick="updateQty(${p.id}, -1)">−</button>
-                    <div class="qty-display">${p.qty} Pkt</div>
-                    <button class="qty-btn btn-plus" onclick="updateQty(${p.id}, 1)">+</button>
-                  </div>
+      if (!currentUser) {
+        headerCategories.style.display = 'none';
+        bottomBar.style.display = 'none';
+        logoutBtn.style.display = 'none';
+        container.innerHTML = `
+          <div class="auth-card">
+            <h2>LV TRADERS - WHOLESALE</h2>
+            <p>Enter your details to request access to the wholesale store.</p>
+            <input type="text" id="regName" class="input-field" placeholder="Your Name / Owner Name">
+            <input type="text" id="regShop" class="input-field" placeholder="Shop Name & City">
+            <input type="tel" id="regPhone" class="input-field" placeholder="Mobile / WhatsApp Number">
+            <button class="primary-btn" onclick="registerUser()">Request Store Access</button>
+          </div>
+        `;
+        return;
+      }
+
+      const activeCust = customers.find(c => c.phone === currentUser.phone);
+      if (!activeCust || !activeCust.approved) {
+        headerCategories.style.display = 'none';
+        bottomBar.style.display = 'none';
+        logoutBtn.style.display = 'block';
+        container.innerHTML = `
+          <div class="auth-card">
+            <h2>⏳ Approval Pending</h2>
+            <p>Your account is waiting for Admin Approval by LV Traders. You will get access once approved.</p>
+            <button class="primary-btn" onclick="logoutUser()" style="background:#4a148c; margin-top:15px;">Switch Account / Logout</button>
+          </div>
+        `;
+        return;
+      }
+
+      headerCategories.style.display = 'flex';
+      bottomBar.style.display = 'flex';
+      logoutBtn.style.display = 'block';
+      
+      let html = '<div class="feed-container">';
+      const filtered = currentCategory === 'All' ? products : products.filter(p => p.category === currentCategory);
+      
+      if (filtered.length === 0) {
+        html += '<div style="text-align:center; padding:50px 20px; color:#b39ddb;"><h3>No Products Live Yet</h3><p style="font-size:13px;">Admin has not uploaded any products yet.</p></div>';
+      }
+
+      filtered.forEach(p => {
+        html += `
+          <div class="product-item">
+            <img src="${p.img}" class="product-img" alt="${p.name}">
+            <div class="product-info">
+              <span class="product-cat">${p.category}</span>
+              <div class="product-title">${p.name}</div>
+              <div class="product-desc">${p.desc}</div>
+              <div class="price-cart-row">
+                <div>
+                  <div class="price-label">Packet Price</div>
+                  <div class="price-val">Rs. ${p.price.toLocaleString()}</div>
+                </div>
+                <div class="qty-controls">
+                  <button class="qty-btn btn-minus" onclick="updateQty(${p.id}, -1)">−</button>
+                  <div class="qty-display">${p.qty} Pkt</div>
+                  <button class="qty-btn btn-plus" onclick="updateQty(${p.id}, 1)">+</button>
                 </div>
               </div>
             </div>
-          `;
-        });
-        html += '</div>';
-        container.innerHTML = html;
-        updateHeaderBill();
+          </div>
+        `;
       });
+      html += '</div>';
+      container.innerHTML = html;
+      updateHeaderBill();
     }
 
     function registerUser() {
@@ -460,11 +468,4 @@
         });
       });
 
-      saveCloudData(() => {
-        tempBulkImages = [];
-        alert("All products published successfully to Cloud!");
-        renderAdminPanel();
-      });
-    }
-
-    function deleteProduct(id) 
+      saveCloudData(
