@@ -155,7 +155,11 @@
       currentUser = JSON.parse(localStorage.getItem('lv_user')) || null;
     } catch(e) { currentUser = null; }
 
-    let isAdminLoggedIn = localStorage.getItem('lv_admin') === 'true';
+    let isAdminLoggedIn = false;
+    try {
+      isAdminLoggedIn = localStorage.getItem('lv_admin') === 'true';
+    } catch(e) { isAdminLoggedIn = false; }
+
     let products = [];
     let customers = [];
 
@@ -170,8 +174,10 @@
     let currentCategory = 'All';
     let tempBulkImages = [];
 
-    // فوری رینڈر
-    renderApp();
+    // صفحہ فوراً رینڈر کریں
+    window.onload = function() {
+      renderApp();
+    };
 
     function renderApp() {
       const container = document.getElementById('mainContainer');
@@ -184,7 +190,7 @@
       if (isAdminLoggedIn) {
         headerCategories.style.display = 'none';
         bottomBar.style.display = 'none';
-        logoutBtn.style.display = 'block';
+        if(logoutBtn) logoutBtn.style.display = 'block';
         renderAdminPanel();
         return;
       }
@@ -192,7 +198,7 @@
       if (!currentUser) {
         headerCategories.style.display = 'none';
         bottomBar.style.display = 'none';
-        logoutBtn.style.display = 'none';
+        if(logoutBtn) logoutBtn.style.display = 'none';
         container.innerHTML = `
           <div class="auth-card">
             <h2>LV TRADERS - WHOLESALE</h2>
@@ -210,7 +216,7 @@
       if (!activeCust || !activeCust.approved) {
         headerCategories.style.display = 'none';
         bottomBar.style.display = 'none';
-        logoutBtn.style.display = 'block';
+        if(logoutBtn) logoutBtn.style.display = 'block';
         container.innerHTML = `
           <div class="auth-card">
             <h2>⏳ Approval Pending</h2>
@@ -223,7 +229,7 @@
 
       headerCategories.style.display = 'flex';
       bottomBar.style.display = 'flex';
-      logoutBtn.style.display = 'block';
+      if(logoutBtn) logoutBtn.style.display = 'block';
       
       let html = '<div class="feed-container">';
       const filtered = currentCategory === 'All' ? products : products.filter(p => p.category === currentCategory);
@@ -271,9 +277,12 @@
         customers.push({ name, shop, phone, approved: false });
       }
 
-      localStorage.setItem('lv_customers', JSON.stringify(customers));
-      currentUser = { name, phone };
-      localStorage.setItem('lv_user', JSON.stringify(currentUser));
+      try {
+        localStorage.setItem('lv_customers', JSON.stringify(customers));
+        currentUser = { name, phone };
+        localStorage.setItem('lv_user', JSON.stringify(currentUser));
+      } catch(e) {}
+
       alert("Request sent successfully! Waiting for Admin Approval.");
       renderApp();
     }
@@ -281,21 +290,23 @@
     function logoutUser() {
       currentUser = null;
       isAdminLoggedIn = false;
-      localStorage.removeItem('lv_user');
-      localStorage.removeItem('lv_admin');
+      try {
+        localStorage.removeItem('lv_user');
+        localStorage.removeItem('lv_admin');
+      } catch(e) {}
       renderApp();
     }
 
     function toggleAdminPanel() {
       if (isAdminLoggedIn) {
         isAdminLoggedIn = false;
-        localStorage.removeItem('lv_admin');
+        try { localStorage.removeItem('lv_admin'); } catch(e) {}
         renderApp();
       } else {
         let pass = prompt("Enter Admin Password:");
         if (pass === "admin123") {
           isAdminLoggedIn = true;
-          localStorage.setItem('lv_admin', 'true');
+          try { localStorage.setItem('lv_admin', 'true'); } catch(e) {}
           renderApp();
         } else if (pass !== null) {
           alert("Incorrect Password!");
@@ -428,7 +439,10 @@
         });
       });
 
-      localStorage.setItem('lv_products', JSON.stringify(products));
+      try {
+        localStorage.setItem('lv_products', JSON.stringify(products));
+      } catch(e) {}
+
       tempBulkImages = [];
       alert("All products published successfully!");
       renderAdminPanel();
@@ -437,28 +451,34 @@
     function deleteProduct(id) {
       if (confirm("Are you sure you want to delete this product?")) {
         products = products.filter(p => p.id !== id);
-        localStorage.setItem('lv_products', JSON.stringify(products));
+        try {
+          localStorage.setItem('lv_products', JSON.stringify(products));
+        } catch(e) {}
         renderAdminPanel();
       }
     }
 
     function approveCust(idx) {
       customers[idx].approved = true;
-      localStorage.setItem('lv_customers', JSON.stringify(customers));
+      try {
+        localStorage.setItem('lv_customers', JSON.stringify(customers));
+      } catch(e) {}
       renderAdminPanel();
     }
 
     function removeCust(idx) {
       if (confirm("Remove this customer?")) {
         customers.splice(idx, 1);
-        localStorage.setItem('lv_customers', JSON.stringify(customers));
+        try {
+          localStorage.setItem('lv_customers', JSON.stringify(customers));
+        } catch(e) {}
         renderAdminPanel();
       }
     }
 
     function updateQty(id, change) {
       const item = products.find(p => p.id === id);
-      if (item.qty + change >= 0) {
+      if (item && item.qty + change >= 0) {
         item.qty += change;
         updateHeaderBill();
         renderApp();
@@ -478,4 +498,72 @@
     }
 
     function filterProducts(cat, btn) {
-      currentCategory =
+      currentCategory = cat;
+      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+      if(btn) btn.classList.add('active');
+      renderApp();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function generatePDFAndWhatsApp() {
+      const selected = products.filter(p => p.qty > 0);
+      if (!selected.length) { alert("Please add at least 1 packet to your cart!"); return; }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(18);
+      doc.setTextColor(74, 14, 78);
+      doc.text("LV TRADERS - WHOLESALE ORDER", 14, 20);
+
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Customer: ${currentUser ? currentUser.name : 'Guest'} (${currentUser ? currentUser.phone : ''})`, 14, 27);
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 33);
+
+      let y = 42;
+      let totalAmount = 0;
+
+      selected.forEach((p, index) => {
+        if (y > 250) { doc.addPage(); y = 20; }
+        let subtotal = p.qty * p.price;
+        totalAmount += subtotal;
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`${index + 1}. ${p.name}`, 14, y);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text(`Category: ${p.category} | ${p.desc}`, 14, y + 5);
+        doc.text(`Ordered: ${p.qty} Pkts x Rs. ${p.price.toLocaleString()} = Rs. ${subtotal.toLocaleString()}`, 14, y + 10);
+
+        try {
+          doc.addImage(p.img, 'JPEG', 150, y - 2, 22, 22);
+        } catch(e) {}
+
+        doc.setDrawColor(200, 200, 200);
+        doc.line(14, y + 15, 196, y + 15);
+        y += 22;
+      });
+
+      y += 5;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.setTextColor(198, 40, 40);
+      doc.text(`TOTAL BILL: Rs. ${totalAmount.toLocaleString()}`, 14, y);
+
+      doc.save("LV_Traders_Order.pdf");
+
+      let msg = `*LV TRADERS - NEW ORDER*%0A*Customer:* ${currentUser ? currentUser.name : ''} (${currentUser ? currentUser.phone : ''})%0A------------------------%0A`;
+      selected.forEach((p, i) => {
+        msg += `${i+1}. ${p.name} - ${p.qty} Pkts (Rs.${p.qty * p.price})%0A`;
+      });
+      msg += `------------------------%0A*TOTAL: Rs. ${totalAmount.toLocaleString()}*%0A*(PDF Bill downloaded)*`;
+      window.open(`https://wa.me/?text=${msg}`, '_blank');
+    }
+  </script>
+</body>
+</html>
