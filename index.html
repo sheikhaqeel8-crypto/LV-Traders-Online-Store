@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LV Traders - Wholesale PWA Store</title>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <!-- jsPDF Library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
@@ -20,7 +24,7 @@
     }
     .brand { font-size: 18px; font-weight: 800; letter-spacing: 1px; color: #fff; }
     .header-actions { display: flex; gap: 8px; align-items: center; }
-    .admin-btn {
+    .admin-btn, .logout-btn {
       background: rgba(0,0,0,0.4); border: 1px solid #ff8a80; color: #fff;
       padding: 5px 10px; border-radius: 6px; font-size: 12px; cursor: pointer;
     }
@@ -47,6 +51,22 @@
     }
 
     .container { max-width: 500px; margin: 0 auto; padding: 0 10px; }
+
+    .auth-card {
+      background: #270933; border: 2px solid #880e4f; padding: 24px;
+      border-radius: 16px; margin-top: 30px; text-align: center;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.7);
+    }
+    .auth-card h2 { color: #ff8a80; margin-bottom: 8px; font-size: 20px; }
+    .auth-card p { font-size: 13px; color: #e1bee7; margin-bottom: 20px; }
+    .input-field {
+      width: 100%; padding: 12px; margin-bottom: 12px; background: #1a0521;
+      border: 1px solid #880e4f; color: #fff; border-radius: 8px; font-size: 14px;
+    }
+    .primary-btn {
+      width: 100%; padding: 12px; background: linear-gradient(90deg, #c62828, #6a1b9a);
+      border: none; color: #fff; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 15px;
+    }
 
     .product-item {
       background: #23062b; margin-bottom: 20px; border-radius: 12px;
@@ -97,14 +117,6 @@
     .user-row, .bulk-preview-row, .admin-prod-row {
       background: #1a0521; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #880e4f;
     }
-    .input-field {
-      width: 100%; padding: 10px; margin-bottom: 8px; background: #1a0521;
-      border: 1px solid #880e4f; color: #fff; border-radius: 6px; font-size: 13px;
-    }
-    .primary-btn {
-      width: 100%; padding: 10px; background: linear-gradient(90deg, #c62828, #6a1b9a);
-      border: none; color: #fff; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 14px;
-    }
     .btn-approve { background: #2e7d32; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
     .btn-remove { background: #c62828; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
   </style>
@@ -116,13 +128,14 @@
       <div class="brand">LV TRADERS</div>
       <div class="header-actions">
         <button class="admin-btn" onclick="toggleAdminPanel()">⚙️ Admin</button>
+        <button class="logout-btn" onclick="logoutUser()" id="logoutBtn" style="display:none;">Logout</button>
       </div>
       <div class="bill-box">
         <div class="bill-amount">Bill: Rs. <span id="totalBill">0</span></div>
         <div class="pkt-count">Cart: <span id="totalPkts">0</span> Pkts</div>
       </div>
     </div>
-    <div class="categories" id="categoryBar">
+    <div class="categories" id="categoryBar" style="display:none;">
       <button class="cat-btn active" onclick="filterProducts('All', this)">All Items</button>
       <button class="cat-btn" onclick="filterProducts('Hats', this)">Hats</button>
       <button class="cat-btn" onclick="filterProducts('Socks', this)">Socks</button>
@@ -135,70 +148,168 @@
 
   <div class="container" id="mainContainer"></div>
 
-  <div class="bottom-bar" id="bottomBar">
+  <div class="bottom-bar" id="bottomBar" style="display:none;">
     <button class="wa-btn" onclick="generatePDFAndWhatsApp()">📲 Send PDF Bill to WhatsApp</button>
   </div>
 
   <script>
-    let isAdminLoggedIn = localStorage.getItem('lv_admin') === 'true';
-    
-    // Start with empty products so only your uploaded products show up
-    let products = JSON.parse(localStorage.getItem('lv_products')) || [];
-    let customers = JSON.parse(localStorage.getItem('lv_customers')) || [
-      { name: "Ali Garments", shop: "Raja Bazar", phone: "03001234567", approved: true }
-    ];
+    // Firebase Initialization with your config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBZXptS4FaUUNprC8lJ7dAB2abCLISJF7M",
+      authDomain: "lv-traders-store-2408c.firebaseapp.com",
+      projectId: "lv-traders-store-2408c",
+      storageBucket: "lv-traders-store-2408c.firebasestorage.app",
+      messagingSenderId: "735144169670",
+      appId: "1:735144169670:web:3d2372fa828cddd72d87c7",
+      measurementId: "G-E674MGWNSP"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
 
+    let currentUser = JSON.parse(localStorage.getItem('lv_user')) || null;
+    let isAdminLoggedIn = localStorage.getItem('lv_admin') === 'true';
+
+    let products = [];
+    let customers = [];
     let currentCategory = 'All';
     let tempBulkImages = [];
 
+    // Fetch data from Firebase Cloud Firestore
+    function fetchCloudData(callback) {
+      db.collection("store_data").doc("main_data").get().then((doc) => {
+        if (doc.exists) {
+          const data = doc.data();
+          products = data.products || [];
+          customers = data.customers || [];
+        }
+        if (callback) callback();
+      }).catch((error) => {
+        console.log("Error getting data: ", error);
+        if (callback) callback();
+      });
+    }
+
+    function saveCloudData(callback) {
+      db.collection("store_data").doc("main_data").set({
+        products: products,
+        customers: customers
+      }).then(() => {
+        if (callback) callback();
+      }).catch((error) => {
+        alert("Error saving data: " + error.message);
+      });
+    }
+
     function renderApp() {
-      const container = document.getElementById('mainContainer');
-      const bottomBar = document.getElementById('bottomBar');
-      const headerCategories = document.getElementById('categoryBar');
+      fetchCloudData(() => {
+        const container = document.getElementById('mainContainer');
+        const bottomBar = document.getElementById('bottomBar');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const headerCategories = document.getElementById('categoryBar');
 
-      if (isAdminLoggedIn) {
-        headerCategories.style.display = 'none';
-        bottomBar.style.display = 'none';
-        renderAdminPanel();
-        return;
-      }
+        if (isAdminLoggedIn) {
+          headerCategories.style.display = 'none';
+          bottomBar.style.display = 'none';
+          logoutBtn.style.display = 'block';
+          renderAdminPanel();
+          return;
+        }
 
-      headerCategories.style.display = 'flex';
-      bottomBar.style.display = 'flex';
-      
-      let html = '<div class="feed-container">';
-      const filtered = currentCategory === 'All' ? products : products.filter(p => p.category === currentCategory);
-      
-      if (filtered.length === 0) {
-        html += '<div style="text-align:center; padding:50px 20px; color:#b39ddb;"><h3 style="margin-bottom:8px;">No Products Live Yet</h3><p style="font-size:13px;">Open Admin Panel (⚙️ Admin) with password <b>admin123</b> to upload products from your gallery.</p></div>';
-      }
+        if (!currentUser) {
+          headerCategories.style.display = 'none';
+          bottomBar.style.display = 'none';
+          logoutBtn.style.display = 'none';
+          container.innerHTML = `
+            <div class="auth-card">
+              <h2>LV TRADERS - WHOLESALE</h2>
+              <p>Enter your details to request access to the wholesale store.</p>
+              <input type="text" id="regName" class="input-field" placeholder="Your Name / Owner Name">
+              <input type="text" id="regShop" class="input-field" placeholder="Shop Name & City">
+              <input type="tel" id="regPhone" class="input-field" placeholder="Mobile / WhatsApp Number">
+              <button class="primary-btn" onclick="registerUser()">Request Store Access</button>
+            </div>
+          `;
+          return;
+        }
 
-      filtered.forEach(p => {
-        html += `
-          <div class="product-item">
-            <img src="${p.img}" class="product-img" alt="${p.name}">
-            <div class="product-info">
-              <span class="product-cat">${p.category}</span>
-              <div class="product-title">${p.name}</div>
-              <div class="product-desc">${p.desc}</div>
-              <div class="price-cart-row">
-                <div>
-                  <div class="price-label">Packet Price</div>
-                  <div class="price-val">Rs. ${p.price.toLocaleString()}</div>
-                </div>
-                <div class="qty-controls">
-                  <button class="qty-btn btn-minus" onclick="updateQty(${p.id}, -1)">−</button>
-                  <div class="qty-display">${p.qty} Pkt</div>
-                  <button class="qty-btn btn-plus" onclick="updateQty(${p.id}, 1)">+</button>
+        const activeCust = customers.find(c => c.phone === currentUser.phone);
+        if (!activeCust || !activeCust.approved) {
+          headerCategories.style.display = 'none';
+          bottomBar.style.display = 'none';
+          logoutBtn.style.display = 'block';
+          container.innerHTML = `
+            <div class="auth-card">
+              <h2>⏳ Approval Pending</h2>
+              <p>Your account is waiting for Admin Approval by LV Traders. You will get access once approved.</p>
+              <button class="primary-btn" onclick="logoutUser()" style="background:#4a148c; margin-top:15px;">Switch Account / Logout</button>
+            </div>
+          `;
+          return;
+        }
+
+        headerCategories.style.display = 'flex';
+        bottomBar.style.display = 'flex';
+        logoutBtn.style.display = 'block';
+        
+        let html = '<div class="feed-container">';
+        const filtered = currentCategory === 'All' ? products : products.filter(p => p.category === currentCategory);
+        
+        if (filtered.length === 0) {
+          html += '<div style="text-align:center; padding:50px 20px; color:#b39ddb;"><h3>No Products Live Yet</h3><p style="font-size:13px;">Admin has not uploaded any products yet.</p></div>';
+        }
+
+        filtered.forEach(p => {
+          html += `
+            <div class="product-item">
+              <img src="${p.img}" class="product-img" alt="${p.name}">
+              <div class="product-info">
+                <span class="product-cat">${p.category}</span>
+                <div class="product-title">${p.name}</div>
+                <div class="product-desc">${p.desc}</div>
+                <div class="price-cart-row">
+                  <div>
+                    <div class="price-label">Packet Price</div>
+                    <div class="price-val">Rs. ${p.price.toLocaleString()}</div>
+                  </div>
+                  <div class="qty-controls">
+                    <button class="qty-btn btn-minus" onclick="updateQty(${p.id}, -1)">−</button>
+                    <div class="qty-display">${p.qty} Pkt</div>
+                    <button class="qty-btn btn-plus" onclick="updateQty(${p.id}, 1)">+</button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        `;
+          `;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+        updateHeaderBill();
       });
-      html += '</div>';
-      container.innerHTML = html;
-      updateHeaderBill();
+    }
+
+    function registerUser() {
+      const name = document.getElementById('regName').value.trim();
+      const shop = document.getElementById('regShop').value.trim();
+      const phone = document.getElementById('regPhone').value.trim();
+      if (!name || !shop || !phone) { alert("Please fill in all fields!"); return; }
+
+      fetchCloudData(() => {
+        customers.push({ name, shop, phone, approved: false });
+        saveCloudData(() => {
+          currentUser = { name, phone };
+          localStorage.setItem('lv_user', JSON.stringify(currentUser));
+          alert("Request sent successfully! Waiting for Admin Approval.");
+          renderApp();
+        });
+      });
+    }
+
+    function logoutUser() {
+      currentUser = null;
+      isAdminLoggedIn = false;
+      localStorage.removeItem('lv_user');
+      localStorage.removeItem('lv_admin');
+      renderApp();
     }
 
     function toggleAdminPanel() {
@@ -213,7 +324,7 @@
           localStorage.setItem('lv_admin', 'true');
           renderApp();
         } else if (pass !== null) {
-          alert("Incorrect Password! (Default is admin123)");
+          alert("Incorrect Password!");
         }
       }
     }
@@ -233,9 +344,8 @@
         `;
       });
 
-      // Existing live products list in admin with Delete option
       let liveProductsHtml = '';
-      products.forEach((p, idx) => {
+      products.forEach((p) => {
         liveProductsHtml += `
           <div class="admin-prod-row" style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
             <img src="${p.img}" style="width:50px; height:50px; object-fit:contain; background:#000; border-radius:4px;">
@@ -272,8 +382,8 @@
           <h2 style="color:#ff8a80; margin-bottom:15px;">LV Traders - Admin Panel</h2>
           
           <div class="admin-section">
-            <h3>👥 Customer Approvals</h3>
-            ${custHtml || '<p>No customers yet.</p>'}
+            <h3>👥 Customer Approvals (${customers.length})</h3>
+            ${custHtml || '<p style="font-size:12px; color:#b39ddb;">No customers registered yet.</p>'}
           </div>
 
           <div class="admin-section">
@@ -289,7 +399,7 @@
               ${bulkPreviewHtml}
             </div>
 
-            ${tempBulkImages.length > 0 ? '<button class="primary-btn" onclick="publishBulkProducts()">Publish All to Store</button>' : ''}
+            ${tempBulkImages.length > 0 ? '<button class="primary-btn" onclick="publishBulkProducts()">Publish All to Cloud</button>' : ''}
           </div>
 
           <button class="primary-btn" onclick="toggleAdminPanel()" style="background:#4a148c; margin-top:10px;">← Back to Store</button>
@@ -333,119 +443,38 @@
         });
       });
 
-      localStorage.setItem('lv_products', JSON.stringify(products));
-      tempBulkImages = [];
-      alert("All products published successfully to store!");
-      renderAdminPanel();
+      saveCloudData(() => {
+        tempBulkImages = [];
+        alert("All products published successfully to Cloud!");
+        renderAdminPanel();
+      });
     }
 
     function deleteProduct(id) {
       if (confirm("Are you sure you want to delete this product?")) {
         products = products.filter(p => p.id !== id);
-        localStorage.setItem('lv_products', JSON.stringify(products));
-        renderAdminPanel();
+        saveCloudData(() => {
+          renderAdminPanel();
+        });
       }
     }
 
     function approveCust(idx) {
       customers[idx].approved = true;
-      localStorage.setItem('lv_customers', JSON.stringify(customers));
-      renderAdminPanel();
+      saveCloudData(() => {
+        renderAdminPanel();
+      });
     }
 
     function removeCust(idx) {
-      customers.splice(idx, 1);
-      localStorage.setItem('lv_customers', JSON.stringify(customers));
-      renderAdminPanel();
+      if (confirm("Remove this customer?")) {
+        customers.splice(idx, 1);
+        saveCloudData(() => {
+          renderAdminPanel();
+        });
+      }
     }
 
     function updateQty(id, change) {
       const item = products.find(p => p.id === id);
-      if (item.qty + change >= 0) {
-        item.qty += change;
-        updateHeaderBill();
-        renderApp();
-      }
-    }
-
-    function updateHeaderBill() {
-      let totalBill = 0, totalPkts = 0;
-      products.forEach(p => {
-        totalBill += p.qty * p.price;
-        totalPkts += p.qty;
-      });
-      document.getElementById('totalBill').innerText = totalBill.toLocaleString();
-      document.getElementById('totalPkts').innerText = totalPkts;
-    }
-
-    function filterProducts(cat, btn) {
-      currentCategory = cat;
-      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      renderApp();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function generatePDFAndWhatsApp() {
-      const selected = products.filter(p => p.qty > 0);
-      if (!selected.length) { alert("Please add at least 1 packet to your cart!"); return; }
-
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(18);
-      doc.setTextColor(74, 14, 78);
-      doc.text("LV TRADERS - WHOLESALE ORDER", 14, 20);
-
-      doc.setFontSize(10);
-      doc.setTextColor(100, 100, 100);
-      doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 27);
-
-      let y = 35;
-      let totalAmount = 0;
-
-      selected.forEach((p, index) => {
-        if (y > 250) { doc.addPage(); y = 20; }
-        let subtotal = p.qty * p.price;
-        totalAmount += subtotal;
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`${index + 1}. ${p.name}`, 14, y);
-
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.text(`Category: ${p.category} | ${p.desc}`, 14, y + 5);
-        doc.text(`Ordered: ${p.qty} Pkts x Rs. ${p.price.toLocaleString()} = Rs. ${subtotal.toLocaleString()}`, 14, y + 10);
-
-        try {
-          doc.addImage(p.img, 'JPEG', 150, y - 2, 22, 22);
-        } catch(e) {}
-
-        doc.setDrawColor(200, 200, 200);
-        doc.line(14, y + 15, 196, y + 15);
-        y += 22;
-      });
-
-      y += 5;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(13);
-      doc.setTextColor(198, 40, 40);
-      doc.text(`TOTAL BILL: Rs. ${totalAmount.toLocaleString()}`, 14, y);
-
-      doc.save("LV_Traders_Order.pdf");
-
-      let msg = `*LV TRADERS - NEW WHOLESALE ORDER*%0A------------------------%0A`;
-      selected.forEach((p, i) => {
-        msg += `${i+1}. ${p.name} - ${p.qty} Pkts (Rs.${p.qty * p.price})%0A`;
-      });
-      msg += `------------------------%0A*TOTAL: Rs. ${totalAmount.toLocaleString()}*%0A*(PDF Bill downloaded on device)*`;
-      window.open(`https://wa.me/?text=${msg}`, '_blank');
-    }
-
-    renderApp();
-  </script>
-</body>
-</html>
+      if (item.qty + change >= 0) 
