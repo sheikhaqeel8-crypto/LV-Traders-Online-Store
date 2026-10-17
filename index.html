@@ -182,24 +182,23 @@
     let currentCategory = 'All';
     let tempBulkImages = [];
 
-    // Real-time Cloud Sync
+    // Real-time Cloud Sync with Firestore
     if (db) {
       db.collection("store_data").doc("main_data").onSnapshot((doc) => {
         if (doc.exists) {
           const data = doc.data();
-          if (data.products && data.products.length > 0) {
+          if (data.products && Array.isArray(data.products)) {
             products = data.products;
             localStorage.setItem('lv_products', JSON.stringify(products));
           }
-          if (data.customers && data.customers.length > 0) {
+          if (data.customers && Array.isArray(data.customers)) {
             customers = data.customers;
             localStorage.setItem('lv_customers', JSON.stringify(customers));
             
-            // Check if current user got approved in real-time
             if (currentUser) {
               const updatedMe = customers.find(c => c.phone === currentUser.phone);
-              if (updatedMe && updatedMe.approved) {
-                currentUser.approved = true;
+              if (updatedMe) {
+                currentUser.approved = updatedMe.approved;
                 localStorage.setItem('lv_user', JSON.stringify(currentUser));
               }
             }
@@ -325,13 +324,12 @@
       const phone = document.getElementById('regPhone').value.trim();
       if (!name || !shop || !phone) { alert("Please fill in all fields!"); return; }
 
-      // Check if phone already exists
       let existing = customers.find(c => c.phone === phone);
       if (!existing) {
         customers.push({ name, shop, phone, approved: false });
       }
 
-      currentUser = { name, phone };
+      currentUser = { name, phone, approved: existing ? existing.approved : false };
       localStorage.setItem('lv_user', JSON.stringify(currentUser));
 
       saveToCloudAndLocal(() => {
@@ -402,12 +400,12 @@
             <img src="${imgObj.dataUrl}" style="width:100%; height:140px; object-fit:contain; background:#f0f0f0; border-radius:6px; margin-bottom:8px;">
             <input type="text" id="bName_${idx}" class="input-field" placeholder="Product Name" value="${imgObj.name}">
             <select id="bCat_${idx}" class="input-field">
-              <option value="Turbans">Turbans</option>
-              <option value="Hats">Hats</option>
-              <option value="Socks">Socks</option>
-              <option value="Warmer Suits">Warmer Suits</option>
-              <option value="Mufflers">Mufflers</option>
-              <option value="Trousers">Trousers</option>
+              <option value="Hats" ${imgObj.cat === 'Hats' ? 'selected' : ''}>Hats</option>
+              <option value="Turbans" ${imgObj.cat === 'Turbans' ? 'selected' : ''}>Turbans</option>
+              <option value="Socks" ${imgObj.cat === 'Socks' ? 'selected' : ''}>Socks</option>
+              <option value="Warmer Suits" ${imgObj.cat === 'Warmer Suits' ? 'selected' : ''}>Warmer Suits</option>
+              <option value="Mufflers" ${imgObj.cat === 'Mufflers' ? 'selected' : ''}>Mufflers</option>
+              <option value="Trousers" ${imgObj.cat === 'Trousers' ? 'selected' : ''}>Trousers</option>
             </select>
             <input type="number" id="bPrice_${idx}" class="input-field" placeholder="Packet Price (Rs)">
             <input type="text" id="bDesc_${idx}" class="input-field" placeholder="Description" value="12 Pcs Packet">
@@ -451,9 +449,14 @@
       Array.from(input.files).forEach((file) => {
         const reader = new FileReader();
         reader.onload = function(e) {
+          // Clean file name: remove long hashes/file_ prefixes and extensions
+          let cleanName = file.name.replace(/^file_[a-z0-9_]+/i, '').replace(/\.[^/.]+$/, "").trim();
+          if (!cleanName || cleanName.length < 2) cleanName = "New Product";
+
           tempBulkImages.push({
             dataUrl: e.target.result,
-            name: file.name.substring(0, file.name.lastIndexOf('.')) || 'Product'
+            name: cleanName,
+            cat: 'Hats' // Default category
           });
           renderAdminPanel();
         };
@@ -462,145 +465,4 @@
     }
 
     function publishBulkProducts() {
-      if (tempBulkImages.length === 0) return;
-      
-      tempBulkImages.forEach((imgObj, idx) => {
-        const name = document.getElementById(`bName_${idx}`).value || imgObj.name;
-        const category = document.getElementById(`bCat_${idx}`).value;
-        const price = Number(document.getElementById(`bPrice_${idx}`).value) || 0;
-        const desc = document.getElementById(`bDesc_${idx}`).value || "12 Pcs Packet";
-
-        products.push({
-          id: Date.now() + idx,
-          name: name,
-          category: category,
-          desc: desc,
-          price: price,
-          qty: 0,
-          img: imgObj.dataUrl
-        });
-      });
-
-      saveToCloudAndLocal(() => {
-        tempBulkImages = [];
-        alert("All products published successfully to Cloud!");
-        renderAdminPanel();
-      });
-    }
-
-    function deleteProduct(id) {
-      if (confirm("Are you sure you want to delete this product?")) {
-        products = products.filter(p => p.id !== id);
-        saveToCloudAndLocal(() => {
-          renderAdminPanel();
-        });
-      }
-    }
-
-    function approveCust(idx) {
-      customers[idx].approved = true;
-      saveToCloudAndLocal(() => {
-        renderAdminPanel();
-      });
-    }
-
-    function removeCust(idx) {
-      if (confirm("Remove this customer?")) {
-        customers.splice(idx, 1);
-        saveToCloudAndLocal(() => {
-          renderAdminPanel();
-        });
-      }
-    }
-
-    function updateQty(id, change) {
-      const item = products.find(p => p.id === id);
-      if (item.qty + change >= 0) {
-        item.qty += change;
-        updateHeaderBill();
-        renderApp();
-      }
-    }
-
-    function updateHeaderBill() {
-      let totalBill = 0, totalPkts = 0;
-      products.forEach(p => {
-        totalBill += p.qty * p.price;
-        totalPkts += p.qty;
-      });
-      const billEl = document.getElementById('totalBill');
-      const pktsEl = document.getElementById('totalPkts');
-      if (billEl) billEl.innerText = totalBill.toLocaleString();
-      if (pktsEl) pktsEl.innerText = totalPkts;
-    }
-
-    function filterProducts(cat, btn) {
-      currentCategory = cat;
-      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      renderApp();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function generatePDFAndWhatsApp() {
-      const selected = products.filter(p => p.qty > 0);
-      if (!selected.length) { alert("Please add at least 1 packet to your cart!"); return; }
-
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(18);
-      doc.setTextColor(74, 14, 78);
-      doc.text("LV TRADERS - WHOLESALE ORDER", 14, 20);
-
-      doc.setFontSize(10);
-      doc.setTextColor(100, 100, 100);
-      doc.text(`Customer: ${currentUser ? currentUser.name : 'Guest'} (${currentUser ? currentUser.phone : ''})`, 14, 27);
-      doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 33);
-
-      let y = 42;
-      let totalAmount = 0;
-
-      selected.forEach((p, index) => {
-        if (y > 250) { doc.addPage(); y = 20; }
-        let subtotal = p.qty * p.price;
-        totalAmount += subtotal;
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`${index + 1}. ${p.name}`, 14, y);
-
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.text(`Category: ${p.category} | ${p.desc}`, 14, y + 5);
-        doc.text(`Ordered: ${p.qty} Pkts x Rs. ${p.price.toLocaleString()} = Rs. ${subtotal.toLocaleString()}`, 14, y + 10);
-
-        try {
-          doc.addImage(p.img, 'JPEG', 150, y - 2, 22, 22);
-        } catch(e) {}
-
-        doc.setDrawColor(200, 200, 200);
-        doc.line(14, y + 15, 196, y + 15);
-        y += 22;
-      });
-
-      y += 5;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(13);
-      doc.setTextColor(198, 40, 40);
-      doc.text(`TOTAL BILL: Rs. ${totalAmount.toLocaleString()}`, 14, y);
-
-      doc.save("LV_Traders_Order.pdf");
-
-      let msg = `*LV TRADERS - NEW ORDER*%0A*Customer:* ${currentUser ? currentUser.name : ''} (${currentUser ? currentUser.phone : ''})%0A------------------------%0A`;
-      selected.forEach((p, i) => {
-        msg += `${i+1}. ${p.name} - ${p.qty} Pkts (Rs.${p.qty * p.price})%0A`;
-      });
-      msg += `------------------------%0A*TOTAL: Rs. ${totalAmount.toLocaleString()}*%0A*(PDF Bill downloaded)*`;
-      window.open(`https://wa.me/?text=${msg}`, '_blank');
-    }
-  </script>
-</body>
-</html>
+      if (tempBulkImages.length === 0) r
