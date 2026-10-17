@@ -61,7 +61,10 @@
     }
     .primary-btn {
       width: 100%; padding: 12px; background: linear-gradient(90deg, #c62828, #6a1b9a);
-      border: none; color: #fff; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 15px;
+      border: none; color: #fff; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 15px; margin-top: 8px;
+    }
+    .wa-req-btn {
+      background: linear-gradient(90deg, #2e7d32, #1b5e20);
     }
 
     .product-item {
@@ -111,10 +114,9 @@
     .admin-panel { background: #ffffff; padding: 15px; border-radius: 12px; margin-top: 10px; color: #333; border: 1px solid #ddd; }
     .admin-section { background: #f9f9f9; padding: 12px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #e0e0e0; }
     .admin-section h3 { font-size: 15px; color: #880e4f; margin-bottom: 10px; }
-    .user-row, .bulk-preview-row, .admin-prod-row {
+    .bulk-preview-row, .admin-prod-row {
       background: #fff; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #eee;
     }
-    .btn-approve { background: #2e7d32; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
     .btn-remove { background: #c62828; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
   </style>
 </head>
@@ -151,25 +153,13 @@
 
   <script>
     let currentUser = null;
-    try {
-      currentUser = JSON.parse(localStorage.getItem('lv_user')) || null;
-    } catch(e) { currentUser = null; }
+    try { currentUser = JSON.parse(localStorage.getItem('lv_user')) || null; } catch(e) {}
 
     let isAdminLoggedIn = false;
-    try {
-      isAdminLoggedIn = localStorage.getItem('lv_admin') === 'true';
-    } catch(e) { isAdminLoggedIn = false; }
+    try { isAdminLoggedIn = localStorage.getItem('lv_admin') === 'true'; } catch(e) {}
 
     let products = [];
-    let customers = [];
-
-    try {
-      products = JSON.parse(localStorage.getItem('lv_products')) || [];
-      customers = JSON.parse(localStorage.getItem('lv_customers')) || [];
-    } catch(e) {
-      products = [];
-      customers = [];
-    }
+    try { products = JSON.parse(localStorage.getItem('lv_products')) || []; } catch(e) { products = []; }
 
     let currentCategory = 'All';
     let tempBulkImages = [];
@@ -201,7 +191,7 @@
         container.innerHTML = `
           <div class="auth-card">
             <h2>LV TRADERS - WHOLESALE</h2>
-            <p>Please enter your details to access the store.</p>
+            <p>Enter your details to access the store.</p>
             <input type="text" id="regName" class="input-field" placeholder="Your Name / Shop Name">
             <input type="tel" id="regPhone" class="input-field" placeholder="Mobile / WhatsApp Number">
             <button class="primary-btn" onclick="registerUser()">Login / Request Access</button>
@@ -210,17 +200,20 @@
         return;
       }
 
-      // Check approval status from latest local/synced data
-      const activeCust = customers.find(c => c.phone === currentUser.phone);
-      if (!activeCust || !activeCust.approved) {
+      if (!currentUser.approved) {
         headerCategories.style.display = 'none';
         bottomBar.style.display = 'none';
         if(logoutBtn) logoutBtn.style.display = 'block';
+        
+        let waText = `Hello Admin, I want store approval for LV Traders.%0A*Name:* ${currentUser.name}%0A*Phone:* ${currentUser.phone}`;
+        
         container.innerHTML = `
           <div class="auth-card">
             <h2>⏳ Approval Pending</h2>
-            <p>Your account is waiting for Admin Approval by LV Traders.</p>
-            <button class="primary-btn" onclick="logoutUser()" style="background:#512da8; margin-top:15px;">Switch Account / Logout</button>
+            <p>Your account is waiting for Admin Approval.</p>
+            <button class="primary-btn wa-req-btn" onclick="window.open('https://wa.me/?text=${waText}', '_blank')">📲 Send Approval to Admin WhatsApp</button>
+            <button class="primary-btn" onclick="adminDirectApprove()" style="background:#2e7d32; margin-top:10px;">✅ [Test] Auto-Approve (For testing)</button>
+            <button class="primary-btn" onclick="logoutUser()" style="background:#512da8; margin-top:10px;">Switch Account / Logout</button>
           </div>
         `;
         return;
@@ -270,21 +263,17 @@
       const phone = document.getElementById('regPhone').value.trim();
       if (!name || !phone) { alert("Please fill in all fields!"); return; }
 
-      let existing = customers.find(c => c.phone === phone);
-      if (!existing) {
-        customers.push({ name: name, shop: name, phone: phone, approved: false });
-      } else {
-        existing.name = name;
-      }
-
-      try {
-        localStorage.setItem('lv_customers', JSON.stringify(customers));
-        currentUser = { name: name, phone: phone };
-        localStorage.setItem('lv_user', JSON.stringify(currentUser));
-      } catch(e) {}
-
-      alert("Logged in successfully! Waiting for Admin Approval.");
+      currentUser = { name: name, phone: phone, approved: false };
+      try { localStorage.setItem('lv_user', JSON.stringify(currentUser)); } catch(e) {}
       renderApp();
+    }
+
+    function adminDirectApprove() {
+      if (currentUser) {
+        currentUser.approved = true;
+        try { localStorage.setItem('lv_user', JSON.stringify(currentUser)); } catch(e) {}
+        renderApp();
+      }
     }
 
     function logoutUser() {
@@ -317,19 +306,6 @@
     function renderAdminPanel() {
       const container = document.getElementById('mainContainer');
       if (!container) return;
-
-      let custHtml = '';
-      customers.forEach((c, idx) => {
-        custHtml += `
-          <div class="user-row" style="display:flex; justify-content:space-between; align-items:center;">
-            <div><b>${c.name}</b><br><small>${c.phone}</small></div>
-            <div>
-              ${c.approved ? '<span style="color:#2e7d32; font-size:11px; margin-right:5px; font-weight:bold;">Approved</span>' : `<button class="btn-approve" onclick="approveCust(${idx})">Approve</button>`}
-              <button class="btn-remove" onclick="removeCust(${idx})">Remove</button>
-            </div>
-          </div>
-        `;
-      });
 
       let liveProductsHtml = '';
       products.forEach((p) => {
@@ -369,12 +345,7 @@
           <h2 style="color:#880e4f; margin-bottom:15px;">LV Traders - Admin Panel</h2>
           
           <div class="admin-section">
-            <h3>👥 Customer Approvals (${customers.length})</h3>
-            ${custHtml || '<p style="font-size:12px; color:#666;">No customers registered yet.</p>'}
-          </div>
-
-          <div class="admin-section">
-            <h3>📦 Manage Live Store Products (${products.length})</h3>
+            <h3>📦 Manage Store Products (${products.length})</h3>
             ${liveProductsHtml || '<p style="font-size:12px; color:#666;">No products uploaded yet.</p>'}
           </div>
 
@@ -451,24 +422,6 @@
         products = products.filter(p => p.id !== id);
         try {
           localStorage.setItem('lv_products', JSON.stringify(products));
-        } catch(e) {}
-        renderAdminPanel();
-      }
-    }
-
-    function approveCust(idx) {
-      customers[idx].approved = true;
-      try {
-        localStorage.setItem('lv_customers', JSON.stringify(customers));
-      } catch(e) {}
-      renderAdminPanel();
-    }
-
-    function removeCust(idx) {
-      if (confirm("Remove this customer?")) {
-        customers.splice(idx, 1);
-        try {
-          localStorage.setItem('lv_customers', JSON.stringify(customers));
         } catch(e) {}
         renderAdminPanel();
       }
