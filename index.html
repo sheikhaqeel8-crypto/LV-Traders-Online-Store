@@ -1,479 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LV Traders - Wholesale Store</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
-    body { background-color: #f4f6f9; color: #333; padding-top: 115px; padding-bottom: 80px; }
-
-    .header {
-      position: fixed; top: 0; left: 0; width: 100%; z-index: 1000;
-      background: linear-gradient(135deg, #4a0e4e 0%, #880e4f 50%, #c62828 100%);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-    .header-top {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.15);
-    }
-    .brand { font-size: 18px; font-weight: 800; color: #fff; letter-spacing: 0.5px; }
-    .header-actions { display: flex; gap: 6px; align-items: center; }
-    .top-btn {
-      background: rgba(0,0,0,0.35); border: 1px solid #ff8a80; color: #fff;
-      padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;
-    }
-    .bill-box {
-      background: rgba(0,0,0,0.35); padding: 4px 10px; border-radius: 8px;
-      border: 1px solid #ff5252; text-align: right;
-    }
-    .bill-amount { font-size: 14px; font-weight: bold; color: #ffeb3b; }
-    .pkt-count { font-size: 11px; color: #ffcdd2; }
-
-    .categories {
-      display: none; overflow-x: auto; gap: 8px; padding: 10px 14px;
-      background: #380b3d; scrollbar-width: none;
-    }
-    .categories::-webkit-scrollbar { display: none; }
-    .cat-btn {
-      background: #512da8; color: #fff; border: 1px solid #ad1457;
-      padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
-      white-space: nowrap; cursor: pointer;
-    }
-    .cat-btn.active {
-      background: linear-gradient(90deg, #d32f2f, #ad1457);
-      border-color: #ff8a80;
-    }
-
-    .container { max-width: 500px; margin: 0 auto; padding: 0 12px; }
-
-    .card-box {
-      background: #ffffff; border: 2px solid #880e4f; padding: 22px;
-      border-radius: 16px; margin-top: 20px; text-align: center; color: #333;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.08);
-    }
-    .card-box h2 { color: #880e4f; margin-bottom: 8px; font-size: 20px; }
-    .card-box p { font-size: 13px; color: #555; margin-bottom: 18px; line-height: 1.4; }
-    
-    .input-field {
-      width: 100%; padding: 12px; margin-bottom: 12px; background: #fff;
-      border: 1px solid #bbb; color: #222; border-radius: 8px; font-size: 14px;
-    }
-    .primary-btn {
-      width: 100%; padding: 13px; background: linear-gradient(90deg, #c62828, #6a1b9a);
-      border: none; color: #fff; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 15px; margin-top: 6px;
-    }
-    .wa-green-btn { background: linear-gradient(90deg, #2e7d32, #1b5e20); }
-
-    .product-item {
-      background: #ffffff; margin-bottom: 18px; border-radius: 12px;
-      overflow: hidden; border: 1px solid #ddd; box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-    }
-    .product-img {
-      width: 100%; height: 55vh; object-fit: contain; display: block; background: #f8f8f8;
-    }
-    .product-info { padding: 14px; background: #ffffff; }
-    .product-cat {
-      display: inline-block; background: #fce4ec; color: #880e4f;
-      font-size: 11px; padding: 3px 8px; border-radius: 4px; margin-bottom: 4px; font-weight: bold;
-    }
-    .product-title { font-size: 18px; font-weight: 700; color: #111; margin-bottom: 2px; }
-    .product-desc { font-size: 13px; color: #666; margin-bottom: 12px; }
-
-    .price-cart-row {
-      display: flex; justify-content: space-between; align-items: center;
-      background: #fdf2f2; padding: 10px 12px; border-radius: 10px; border: 1px solid #ffcdd2;
-    }
-    .price-label { font-size: 11px; color: #d32f2f; }
-    .price-val { font-size: 18px; font-weight: 800; color: #c62828; }
-
-    .qty-controls { display: flex; align-items: center; gap: 10px; }
-    .qty-btn {
-      width: 38px; height: 38px; border-radius: 8px; border: none;
-      font-size: 20px; font-weight: bold; color: #fff; cursor: pointer;
-    }
-    .btn-minus { background: #6a1b9a; }
-    .btn-plus { background: #d32f2f; }
-    .qty-display { font-size: 15px; font-weight: bold; min-width: 50px; text-align: center; color: #222; }
-
-    .bottom-bar {
-      position: fixed; bottom: 0; left: 0; width: 100%; padding: 10px 14px;
-      background: #ffffff; border-top: 1px solid #ccc; z-index: 1000; display: none;
-      box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
-    }
-    .wa-order-btn {
-      width: 100%; background: linear-gradient(90deg, #2e7d32, #1b5e20); color: #fff;
-      border: none; padding: 13px; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer;
-    }
-
-    .admin-section {
-      background: #ffffff; padding: 14px; border-radius: 10px; margin-bottom: 15px;
-      border: 1px solid #ddd; text-align: left;
-    }
-    .admin-section h3 { font-size: 15px; color: #880e4f; margin-bottom: 10px; }
-    .row-item {
-      background: #f9f9f9; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #eee;
-    }
-    .sm-btn { border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; color: #fff; font-weight: bold; }
-    .sync-badge { font-size: 11px; color: #81c784; display: block; margin-top: 2px; font-weight: bold; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LV Traders - Wholesale Store</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Tahoma,sans-serif}
+body{background:#f4f6f9;color:#333;padding-top:115px;padding-bottom:80px}
+.header{position:fixed;top:0;left:0;width:100%;z-index:1000;background:linear-gradient(135deg,#4a0e4e 0%,#880e4f 50%,#c62828 100%);box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.header-top{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.15)}
+.brand{font-size:18px;font-weight:800;color:#fff;letter-spacing:.5px}
+.header-actions{display:flex;gap:6px;align-items:center}
+.top-btn{background:rgba(0,0,0,.35);border:1px solid #ff8a80;color:#fff;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600}
+.bill-box{background:rgba(0,0,0,.35);padding:4px 10px;border-radius:8px;border:1px solid #ff5252;text-align:right}
+.bill-amount{font-size:14px;font-weight:bold;color:#ffeb3b}
+.pkt-count{font-size:11px;color:#ffcdd2}
+.categories{display:none;overflow-x:auto;gap:8px;padding:10px 14px;background:#380b3d;scrollbar-width:none}
+.categories::-webkit-scrollbar{display:none}
+.cat-btn{background:#512da8;color:#fff;border:1px solid #ad1457;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer}
+.cat-btn.active{background:linear-gradient(90deg,#d32f2f,#ad1457);border-color:#ff8a80}
+.container{max-width:500px;margin:0 auto;padding:0 12px}
+.card-box{background:#fff;border:2px solid #880e4f;padding:22px;border-radius:16px;margin-top:20px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.08)}
+.card-box h2{color:#880e4f;margin-bottom:8px;font-size:20px}
+.card-box p{font-size:13px;color:#555;margin-bottom:18px;line-height:1.6}
+.input-field{width:100%;padding:12px;margin-bottom:12px;background:#fff;border:1px solid #bbb;color:#222;border-radius:8px;font-size:14px}
+.primary-btn{width:100%;padding:13px;background:linear-gradient(90deg,#c62828,#6a1b9a);border:none;color:#fff;font-weight:bold;border-radius:8px;cursor:pointer;font-size:15px;margin-top:6px}
+.primary-btn:disabled{opacity:.6}
+.wa-green-btn{background:linear-gradient(90deg,#2e7d32,#1b5e20)}
+.product-item{background:#fff;margin-bottom:18px;border-radius:12px;overflow:hidden;border:1px solid #ddd;box-shadow:0 4px 10px rgba(0,0,0,.05)}
+.product-img{width:100%;height:55vh;object-fit:contain;display:block;background:#f8f8f8}
+.product-info{padding:14px}
+.product-cat{display:inline-block;background:#fce4ec;color:#880e4f;font-size:11px;padding:3px 8px;border-radius:4px;margin-bottom:4px;font-weight:bold}
+.product-title{font-size:18px;font-weight:700;color:#111;margin-bottom:2px}
+.product-desc{font-size:13px;color:#666;margin-bottom:12px}
+.price-cart-row{display:flex;justify-content:space-between;align-items:center;background:#fdf2f2;padding:10px 12px;border-radius:10px;border:1px solid #ffcdd2}
+.price-label{font-size:11px;color:#d32f2f}
+.price-val{font-size:18px;font-weight:800;color:#c62828}
+.qty-controls{display:flex;align-items:center;gap:10px}
+.qty-btn{width:38px;height:38px;border-radius:8px;border:none;font-size:20px;font-weight:bold;color:#fff;cursor:pointer}
+.btn-minus{background:#6a1b9a}.btn-plus{background:#d32f2f}
+.qty-display{font-size:15px;font-weight:bold;min-width:50px;text-align:center;color:#222}
+.bottom-bar{position:fixed;bottom:0;left:0;width:100%;padding:10px 14px;background:#fff;border-top:1px solid #ccc;z-index:1000;display:none;box-shadow:0 -4px 10px rgba(0,0,0,.05)}
+.wa-order-btn{width:100%;background:linear-gradient(90deg,#2e7d32,#1b5e20);color:#fff;border:none;padding:13px;border-radius:8px;font-size:15px;font-weight:bold;cursor:pointer}
+.admin-section{background:#fff;padding:14px;border-radius:10px;margin-bottom:15px;border:1px solid #ddd;text-align:left}
+.admin-section h3{font-size:15px;color:#880e4f;margin-bottom:10px}
+.row-item{background:#f9f9f9;padding:10px;border-radius:8px;margin-bottom:10px;border:1px solid #eee}
+.sm-btn{border:none;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;font-weight:bold}
+.sync-badge{font-size:11px;color:#81c784;display:block;margin-top:2px;font-weight:bold}
+.thumb{width:56px;height:56px;object-fit:cover;border-radius:6px;background:#eee}
+.flex{display:flex;gap:8px;align-items:center}
+.mini{padding:8px;margin-bottom:6px;font-size:13px}
+</style>
 </head>
 <body>
 
-  <!-- TOP HEADER -->
-  <div class="header">
-    <div class="header-top">
-      <div>
-        <div class="brand">LV TRADERS</div>
-        <span id="syncStatus" class="sync-badge">● Ready</span>
-      </div>
-      <div class="header-actions">
-        <button type="button" class="top-btn" onclick="showAdminLoginBox()">⚙️ Admin</button>
-        <button type="button" id="btnLogout" class="top-btn" onclick="logoutUser()" style="display:none;">Logout</button>
-      </div>
-      <div class="bill-box">
-        <div class="bill-amount">Rs. <span id="totalBill">0</span></div>
-        <div class="pkt-count">Cart: <span id="totalPkts">0</span> Pkts</div>
-      </div>
+<div class="header">
+  <div class="header-top">
+    <div>
+      <div class="brand">LV TRADERS</div>
+      <span id="syncStatus" class="sync-badge">● Ready</span>
     </div>
-    <div class="categories" id="categoryBar">
-      <button type="button" class="cat-btn active" onclick="filterCategory('All', this)">All Items</button>
-      <button type="button" class="cat-btn" onclick="filterCategory('Hats', this)">Hats</button>
-      <button type="button" class="cat-btn" onclick="filterCategory('Turbans', this)">Turbans</button>
-      <button type="button" class="cat-btn" onclick="filterCategory('Socks', this)">Socks</button>
-      <button type="button" class="cat-btn" onclick="filterCategory('Warmer Suits', this)">Warmer Suits</button>
-      <button type="button" class="cat-btn" onclick="filterCategory('Mufflers', this)">Mufflers</button>
-      <button type="button" class="cat-btn" onclick="filterCategory('Trousers', this)">Trousers</button>
-    </div>
-  </div>
-
-  <div class="container">
-    
-    <!-- ADMIN PASSWORD BOX -->
-    <div id="viewAdminAuth" class="card-box" style="display:none;">
-      <h2>⚙️ Admin Login</h2>
-      <p>ایڈمن پینل کھولنے کے لیے پاس ورڈ درج کریں۔</p>
-      <input type="password" id="inpAdminPass" class="input-field" placeholder="Enter Admin Password">
-      <button type="button" class="primary-btn" onclick="verifyAdminPass()">Open Admin Panel</button>
-      <button type="button" class="primary-btn" style="background:#777; margin-top:8px;" onclick="updateScreenView()">Cancel</button>
-    </div>
-
-    <!-- 1. LOGIN / SIGNUP SCREEN -->
-    <div id="viewLogin" class="card-box">
-      <h2>LV TRADERS - WHOLESALE</h2>
-      <p>اپنا نام اور واٹس ایپ نمبر درج کر کے سٹور اوپن کریں۔ اگر آپ کا نمبر پہلے سے منظور شدہ ہے تو سٹور فوراً کھل جائے گا۔</p>
-      <input type="text" id="inpName" class="input-field" placeholder="Your Name / Shop Name">
-      <input type="tel" id="inpPhone" class="input-field" placeholder="Mobile / WhatsApp Number (e.g. 03001234567)">
-      <button type="button" class="primary-btn" onclick="handleUserLogin()">Login / Request Store Access</button>
-    </div>
-
-    <!-- 2. APPROVAL PENDING SCREEN -->
-    <div id="viewPending" class="card-box" style="display:none;">
-      <h2>⏳ Approval Pending</h2>
-      <p>آپ کی درخواست درج ہو گئی ہے۔ ایڈمن سے فوری اپروول لینے کے لیے نیچے سبز بٹن دبا کر واٹس ایپ بزنس پر میسج بھیجیں۔</p>
-      <button type="button" class="primary-btn wa-green-btn" onclick="sendApprovalWhatsApp()">📲 Send Request on WhatsApp Business</button>
-      <button type="button" class="primary-btn" onclick="checkCloudNow()" style="background:#1976d2; margin-top:10px;">🔄 Check Status / Refresh</button>
-      <button type="button" class="primary-btn" onclick="logoutUser()" style="background:#512da8; margin-top:10px;">Switch Account / Logout</button>
-    </div>
-
-    <!-- 3. STORE PRODUCTS SCREEN -->
-    <div id="viewStore" style="display:none; margin-top:10px;">
-      <div id="productsFeed"></div>
-    </div>
-
-    <!-- 4. ADMIN PANEL SCREEN -->
-    <div id="viewAdmin" style="display:none; margin-top:10px;">
-      <div class="admin-section">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-          <h2 style="color:#880e4f; font-size:18px;">LV Traders - Admin Panel</h2>
-          <button type="button" class="sm-btn" style="background:#512da8;" onclick="closeAdminPanel()">← Back to Store</button>
-        </div>
-        <p style="font-size:12px; color:#666;">تصاویر آٹومیٹک چھوٹے سائز میں کمپریس ہو کر سیو ہوتی ہیں تاکہ کبھی ڈیلیٹ نہ ہوں۔</p>
-      </div>
-
-      <div class="admin-section">
-        <h3>👥 Customer Approvals (<span id="custCount">0</span>)</h3>
-        <div id="adminCustomersList"></div>
-      </div>
-
-      <div class="admin-section">
-        <h3>➕ Upload New Products from Gallery</h3>
-        <input type="file" id="galleryInput" multiple accept="image/*" class="input-field" style="padding:8px;" onchange="prepareGalleryFiles(this)">
-        <div id="uploadPreviews"></div>
-        <button type="button" id="publishBtn" class="primary-btn" style="display:none;" onclick="publishAllProducts()">🚀 Publish All to Live Store</button>
-      </div>
-
-      <div class="admin-section">
-        <h3>📦 Live Store Products (<span id="prodCount">0</span>)</h3>
-        <div id="adminProductsList"></div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- BOTTOM WHATSAPP ORDER BAR -->
-  <div class="bottom-bar" id="bottomBar">
-    <button type="button" class="wa-order-btn" onclick="sendOrderOnWhatsApp()">📲 Send PDF Bill & Order on WhatsApp</button>
-  </div>
-
-  <!-- CORE APP LOGIC -->
-  <script>
-    const ADMIN_WA = "923335180450";
-    let db = null;
-    let products = [];
-    let customers = [];
-    let cartQty = {};
-    let currentCategory = 'All';
-    let stagedUploads = [];
-    let isAdminView = false;
-    let currentUser = null;
-
-    try {
-      const savedUser = localStorage.getItem('lv_active_user');
-      if (savedUser) currentUser = JSON.parse(savedUser);
-      const savedProds = localStorage.getItem('lv_cached_prods');
-      if (savedProds) products = JSON.parse(savedProds);
-      const savedCusts = localStorage.getItem('lv_cached_custs');
-      if (savedCusts) customers = JSON.parse(savedCusts);
-    } catch (e) {}
-
-    function cleanPhone(p) {
-      return String(p || '').replace(/\D/g, '').slice(-10);
-    }
-
-    function hideAllViews() {
-      document.getElementById('viewAdminAuth').style.display = 'none';
-      document.getElementById('viewLogin').style.display = 'none';
-      document.getElementById('viewPending').style.display = 'none';
-      document.getElementById('viewStore').style.display = 'none';
-      document.getElementById('viewAdmin').style.display = 'none';
-      document.getElementById('categoryBar').style.display = 'none';
-      document.getElementById('bottomBar').style.display = 'none';
-    }
-
-    function updateScreenView() {
-      hideAllViews();
-      document.getElementById('btnLogout').style.display = (currentUser || isAdminView) ? 'block' : 'none';
-
-      if (isAdminView) {
-        document.getElementById('viewAdmin').style.display = 'block';
-        renderAdminLists();
-        return;
-      }
-
-      if (!currentUser) {
-        document.getElementById('viewLogin').style.display = 'block';
-        return;
-      }
-
-      const myCleanPhone = cleanPhone(currentUser.phone);
-      const matchedCustomer = customers.find(c => cleanPhone(c.phone) === myCleanPhone);
-
-      if (!matchedCustomer || !matchedCustomer.approved) {
-        document.getElementById('viewPending').style.display = 'block';
-        return;
-      }
-
-      document.getElementById('categoryBar').style.display = 'flex';
-      document.getElementById('bottomBar').style.display = 'block';
-      document.getElementById('viewStore').style.display = 'block';
-      renderProductsFeed();
-    }
-
-    function showAdminLoginBox() {
-      if (isAdminView) {
-        isAdminView = false;
-        updateScreenView();
-        return;
-      }
-      hideAllViews();
-      document.getElementById('inpAdminPass').value = '';
-      document.getElementById('viewAdminAuth').style.display = 'block';
-    }
-
-    function verifyAdminPass() {
-      const pass = document.getElementById('inpAdminPass').value.trim();
-      if (pass === "admin123") {
-        isAdminView = true;
-        updateScreenView();
-      } else {
-        alert("غلط پاس ورڈ! دوبارہ کوشش کریں۔");
-      }
-    }
-
-    function closeAdminPanel() {
-      isAdminView = false;
-      updateScreenView();
-    }
-
-    function handleUserLogin() {
-      const name = document.getElementById('inpName').value.trim();
-      const phone = document.getElementById('inpPhone').value.trim();
-      if (!name || !phone) {
-        alert("براہ کرم اپنا نام اور فون نمبر دونوں درج کریں۔");
-        return;
-      }
-
-      const cPhone = cleanPhone(phone);
-      let existing = customers.find(c => cleanPhone(c.phone) === cPhone);
-
-      if (!existing) {
-        existing = { name: name, phone: phone, approved: false };
-        customers.push(existing);
-      } else {
-        existing.name = name;
-      }
-
-      currentUser = { name: existing.name, phone: existing.phone };
-      try { localStorage.setItem('lv_active_user', JSON.stringify(currentUser)); } catch(e){}
-
-      updateScreenView();
-      saveStateToCloud();
-    }
-
-    function sendApprovalWhatsApp() {
-      if (!currentUser) return;
-      const msg = `*LV TRADERS - STORE ACCESS REQUEST*%0A*Customer:* ${currentUser.name}%0A*Phone:* ${currentUser.phone}%0APlease approve my number for wholesale store access.`;
-      window.open(`https://wa.me/${ADMIN_WA}?text=${msg}`, '_blank');
-    }
-
-    function logoutUser() {
-      currentUser = null;
-      isAdminView = false;
-      try { localStorage.removeItem('lv_active_user'); } catch(e){}
-      updateScreenView();
-    }
-
-    function saveStateToCloud() {
-      try {
-        localStorage.setItem('lv_cached_prods', JSON.stringify(products));
-        localStorage.setItem('lv_cached_custs', JSON.stringify(customers));
-      } catch(e) {}
-
-      if (!db) return;
-
-      document.getElementById('syncStatus').innerText = "● Saving...";
-      db.collection("lv_store_v2").doc("global_state").set({
-        products: products,
-        customers: customers,
-        updatedAt: Date.now()
-      }).then(() => {
-        document.getElementById('syncStatus').innerText = "● Cloud Synced";
-      }).catch((err) => {
-        document.getElementById('syncStatus').innerText = "● Local Saved";
-      });
-    }
-
-    function checkCloudNow() {
-      if (!db) { updateScreenView(); return; }
-      document.getElementById('syncStatus').innerText = "● Checking...";
-      db.collection("lv_store_v2").doc("global_state").get().then((doc) => {
-        if (doc.exists) {
-          const data = doc.data();
-          if (Array.isArray(data.customers)) {
-            customers = data.customers;
-            try { localStorage.setItem('lv_cached_custs', JSON.stringify(customers)); } catch(e){}
-          }
-          if (Array.isArray(data.products)) {
-            products = data.products;
-            try { localStorage.setItem('lv_cached_prods', JSON.stringify(products)); } catch(e){}
-          }
-        }
-        document.getElementById('syncStatus').innerText = "● Cloud Live";
-        updateScreenView();
-      }).catch(() => {
-        updateScreenView();
-      });
-    }
-
-    function renderProductsFeed() {
-      const feed = document.getElementById('productsFeed');
-      const list = currentCategory === 'All' ? products : products.filter(p => p.category === currentCategory);
-
-      if (list.length === 0) {
-        feed.innerHTML = `<div class="card-box"><h3>No Products Available</h3><p>اس کیٹیگری میں ابھی کوئی پراڈکٹ نہیں لگی۔</p></div>`;
-        return;
-      }
-
-      let html = '';
-      list.forEach((p) => {
-        const q = cartQty[p.id] || 0;
-        html += `
-          <div class="product-item">
-            <img src="${p.img}" class="product-img" alt="${p.name}">
-            <div class="product-info">
-              <span class="product-cat">${p.category}</span>
-              <div class="product-title">${p.name}</div>
-              <div class="product-desc">${p.desc || '12 Pcs Packet'}</div>
-              <div class="price-cart-row">
-                <div>
-                  <div class="price-label">Packet Price</div>
-                  <div class="price-val">Rs. ${Number(p.price).toLocaleString()}</div>
-                </div>
-                <div class="qty-controls">
-                  <button type="button" class="qty-btn btn-minus" onclick="changeCartQty('${p.id}', -1)">−</button>
-                  <div class="qty-display">${q} Pkt</div>
-                  <button type="button" class="qty-btn btn-plus" onclick="changeCartQty('${p.id}', 1)">+</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        `;
-      });
-      feed.innerHTML = html;
-      recalcBill();
-    }
-
-    function changeCartQty(id, delta) {
-      const curr = cartQty[id] || 0;
-      if (curr + delta >= 0) {
-        cartQty[id] = curr + delta;
-        renderProductsFeed();
-      }
-    }
-
-    function recalcBill() {
-      let bill = 0, pkts = 0;
-      products.forEach(p => {
-        const q = cartQty[p.id] || 0;
-        bill += q * Number(p.price);
-        pkts += q;
-      });
-      document.getElementById('totalBill').innerText = bill.toLocaleString();
-      document.getElementById('totalPkts').innerText = pkts;
-    }
-
-    function filterCategory(cat, btnEl) {
-      currentCategory = cat;
-      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-      if (btnEl) btnEl.classList.add('active');
-      renderProductsFeed();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function renderAdminLists() {
-      document.getElementById('custCount').innerText = customers.length;
-      document.getElementById('prodCount').innerText = products.length;
-
-      const cList = document.getElementById('adminCustomersList');
-      if (customers.length === 0) {
-        cList.innerHTML = `<p style="font-size:12px; color:#777;">ابھی کسی کسٹمر نے ریکوئسٹ نہیں بھیجی۔</p>`;
-      } else {
-        let ch = '';
-        customers.forEach((c, idx) => {
-          ch += `
-            <div class="row-item" style="display:flex; justify-content:space-between; align-items:center;">
-              <div><b>${c.name}</b><br><small>${c.phone}</small></div>
-              <div style="display:flex; gap:6px; align-items:center;">
-                ${c.approved 
-                  ? `<span style="color:#2e7d32; font-size:12px; font-weight:bold;">✔ Approved</span>` 
-                  : `<button type="button" class="sm-btn" style="background:#2e7d32;" onclick="approveCustomer(${idx})">Approve</button>`}
-                <button type="button" class="sm-btn" style="background:#c62828;" onclick="deleteCustomer(${idx})">Remove</button>
-              </div>
-            </div>
-          `;
-        });
-        cList.innerHTML = ch;
-      }
-
-      const pList = document.getElementById(
+    <div class="header-actions">
+      <button type="button" class="top-btn" onclick="showAdminLoginBox()">
