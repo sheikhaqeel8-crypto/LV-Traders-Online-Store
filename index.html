@@ -182,12 +182,12 @@
     let currentCategory = 'All';
     let tempBulkImages = [];
 
+    // فوری رینڈر تاکہ سکرین خالی نہ رہے
     renderApp();
-    syncWithCloud();
-
-    function syncWithCloud() {
-      if (!db) return;
-      db.collection("store_data").doc("main_data").get().then((doc) => {
+    
+    // فائر بیس کلاؤڈ سے لائیو ڈیٹا سنک کرنا
+    if (db) {
+      db.collection("store_data").doc("main_data").onSnapshot((doc) => {
         if (doc.exists) {
           const data = doc.data();
           if (data.products) {
@@ -200,7 +200,9 @@
           }
           renderApp();
         }
-      }).catch(err => console.log("Cloud fetch error:", err));
+      }, (err) => {
+        console.log("Cloud sync error:", err);
+      });
     }
 
     function saveToCloudAndLocal(callback) {
@@ -264,7 +266,7 @@
           <div class="auth-card">
             <h2>⏳ Approval Pending</h2>
             <p>Your account is waiting for Admin Approval by LV Traders. You will get access once approved.</p>
-            <button class="primary-btn" onclick="logoutUser()" style="background:#4a148c; margin-top:15px;">Switch Account / Logout</button>
+            <button class="primary-btn" onclick="logoutUser()" style="background:#512da8; margin-top:15px;">Switch Account / Logout</button>
           </div>
         `;
         return;
@@ -476,7 +478,4 @@
       if (confirm("Are you sure you want to delete this product?")) {
         products = products.filter(p => p.id !== id);
         saveToCloudAndLocal(() => {
-          renderAdminPanel();
-        });
-      }
-      
+       
