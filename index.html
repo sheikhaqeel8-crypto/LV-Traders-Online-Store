@@ -150,15 +150,27 @@
   </div>
 
   <script>
-    let currentUser = JSON.parse(localStorage.getItem('lv_user')) || null;
-    let isAdminLoggedIn = localStorage.getItem('lv_admin') === 'true';
+    let currentUser = null;
+    try {
+      currentUser = JSON.parse(localStorage.getItem('lv_user')) || null;
+    } catch(e) { currentUser = null; }
 
-    let products = JSON.parse(localStorage.getItem('lv_products')) || [];
-    let customers = JSON.parse(localStorage.getItem('lv_customers')) || [];
+    let isAdminLoggedIn = localStorage.getItem('lv_admin') === 'true';
+    let products = [];
+    let customers = [];
+
+    try {
+      products = JSON.parse(localStorage.getItem('lv_products')) || [];
+      customers = JSON.parse(localStorage.getItem('lv_customers')) || [];
+    } catch(e) {
+      products = [];
+      customers = [];
+    }
+
     let currentCategory = 'All';
     let tempBulkImages = [];
 
-    // فوری رینڈر تاکہ صفحہ کبھی بلینک نہ ہو
+    // فوری رینڈر
     renderApp();
 
     function renderApp() {
@@ -377,7 +389,6 @@
       Array.from(input.files).forEach((file) => {
         const reader = new FileReader();
         reader.onload = function(e) {
-          // فائل کا لمبا نام صاف کرنا
           let cleanName = file.name.replace(/^file_[a-z0-9_]+/i, '').replace(/\.[^/.]+$/, "").trim();
           if (!cleanName || cleanName.length < 2) cleanName = "Product Item";
 
@@ -467,7 +478,4 @@
     }
 
     function filterProducts(cat, btn) {
-      currentCategory = cat;
-      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
- 
+      currentCategory =
