@@ -4,10 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LV Traders - Wholesale Store</title>
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-  <!-- jsPDF Library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
@@ -154,26 +150,6 @@
   </div>
 
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyBZXptS4FaUUNprC8lJ7dAB2abCLISJF7M",
-      authDomain: "lv-traders-store-2408c.firebaseapp.com",
-      projectId: "lv-traders-store-2408c",
-      storageBucket: "lv-traders-store-2408c.firebasestorage.app",
-      messagingSenderId: "735144169670",
-      appId: "1:735144169670:web:3d2372fa828cddd72d87c7",
-      measurementId: "G-E674MGWNSP"
-    };
-
-    let db = null;
-    try {
-      if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-      }
-      db = firebase.firestore();
-    } catch(e) {
-      console.log("Firebase Init Error:", e);
-    }
-
     let currentUser = JSON.parse(localStorage.getItem('lv_user')) || null;
     let isAdminLoggedIn = localStorage.getItem('lv_admin') === 'true';
 
@@ -182,54 +158,8 @@
     let currentCategory = 'All';
     let tempBulkImages = [];
 
-    // Real-time Cloud Sync with Firestore
-    if (db) {
-      db.collection("store_data").doc("main_data").onSnapshot((doc) => {
-        if (doc.exists) {
-          const data = doc.data();
-          if (data.products && Array.isArray(data.products)) {
-            products = data.products;
-            localStorage.setItem('lv_products', JSON.stringify(products));
-          }
-          if (data.customers && Array.isArray(data.customers)) {
-            customers = data.customers;
-            localStorage.setItem('lv_customers', JSON.stringify(customers));
-            
-            if (currentUser) {
-              const updatedMe = customers.find(c => c.phone === currentUser.phone);
-              if (updatedMe) {
-                currentUser.approved = updatedMe.approved;
-                localStorage.setItem('lv_user', JSON.stringify(currentUser));
-              }
-            }
-          }
-          renderApp();
-        }
-      }, (err) => {
-        console.log("Cloud sync error:", err);
-      });
-    }
-
+    // فوری رینڈر تاکہ صفحہ کبھی بلینک نہ ہو
     renderApp();
-
-    function saveToCloudAndLocal(callback) {
-      localStorage.setItem('lv_products', JSON.stringify(products));
-      localStorage.setItem('lv_customers', JSON.stringify(customers));
-
-      if (db) {
-        db.collection("store_data").doc("main_data").set({
-          products: products,
-          customers: customers
-        }, { merge: true }).then(() => {
-          if (callback) callback();
-        }).catch(err => {
-          console.log("Cloud save error:", err);
-          if (callback) callback();
-        });
-      } else {
-        if (callback) callback();
-      }
-    }
 
     function renderApp() {
       const container = document.getElementById('mainContainer');
@@ -329,13 +259,11 @@
         customers.push({ name, shop, phone, approved: false });
       }
 
-      currentUser = { name, phone, approved: existing ? existing.approved : false };
+      localStorage.setItem('lv_customers', JSON.stringify(customers));
+      currentUser = { name, phone };
       localStorage.setItem('lv_user', JSON.stringify(currentUser));
-
-      saveToCloudAndLocal(() => {
-        alert("Request sent successfully! Waiting for Admin Approval.");
-        renderApp();
-      });
+      alert("Request sent successfully! Waiting for Admin Approval.");
+      renderApp();
     }
 
     function logoutUser() {
@@ -435,7 +363,7 @@
               ${bulkPreviewHtml}
             </div>
 
-            ${tempBulkImages.length > 0 ? '<button class="primary-btn" onclick="publishBulkProducts()">Publish All to Cloud</button>' : ''}
+            ${tempBulkImages.length > 0 ? '<button class="primary-btn" onclick="publishBulkProducts()">Publish All to Store</button>' : ''}
           </div>
 
           <button class="primary-btn" onclick="toggleAdminPanel()" style="background:#512da8; margin-top:10px;">← Back to Store</button>
@@ -449,14 +377,14 @@
       Array.from(input.files).forEach((file) => {
         const reader = new FileReader();
         reader.onload = function(e) {
-          // Clean file name: remove long hashes/file_ prefixes and extensions
+          // فائل کا لمبا نام صاف کرنا
           let cleanName = file.name.replace(/^file_[a-z0-9_]+/i, '').replace(/\.[^/.]+$/, "").trim();
-          if (!cleanName || cleanName.length < 2) cleanName = "New Product";
+          if (!cleanName || cleanName.length < 2) cleanName = "Product Item";
 
           tempBulkImages.push({
             dataUrl: e.target.result,
             name: cleanName,
-            cat: 'Hats' // Default category
+            cat: 'Hats'
           });
           renderAdminPanel();
         };
@@ -465,4 +393,81 @@
     }
 
     function publishBulkProducts() {
-      if (tempBulkImages.length === 0) r
+      if (tempBulkImages.length === 0) return;
+      
+      tempBulkImages.forEach((imgObj, idx) => {
+        const nameInput = document.getElementById(`bName_${idx}`);
+        const catInput = document.getElementById(`bCat_${idx}`);
+        const priceInput = document.getElementById(`bPrice_${idx}`);
+        const descInput = document.getElementById(`bDesc_${idx}`);
+
+        const name = nameInput ? nameInput.value : imgObj.name;
+        const category = catInput ? catInput.value : 'Hats';
+        const price = priceInput ? Number(priceInput.value) || 0 : 0;
+        const desc = descInput ? descInput.value : "12 Pcs Packet";
+
+        products.push({
+          id: Date.now() + idx,
+          name: name,
+          category: category,
+          desc: desc,
+          price: price,
+          qty: 0,
+          img: imgObj.dataUrl
+        });
+      });
+
+      localStorage.setItem('lv_products', JSON.stringify(products));
+      tempBulkImages = [];
+      alert("All products published successfully!");
+      renderAdminPanel();
+    }
+
+    function deleteProduct(id) {
+      if (confirm("Are you sure you want to delete this product?")) {
+        products = products.filter(p => p.id !== id);
+        localStorage.setItem('lv_products', JSON.stringify(products));
+        renderAdminPanel();
+      }
+    }
+
+    function approveCust(idx) {
+      customers[idx].approved = true;
+      localStorage.setItem('lv_customers', JSON.stringify(customers));
+      renderAdminPanel();
+    }
+
+    function removeCust(idx) {
+      if (confirm("Remove this customer?")) {
+        customers.splice(idx, 1);
+        localStorage.setItem('lv_customers', JSON.stringify(customers));
+        renderAdminPanel();
+      }
+    }
+
+    function updateQty(id, change) {
+      const item = products.find(p => p.id === id);
+      if (item.qty + change >= 0) {
+        item.qty += change;
+        updateHeaderBill();
+        renderApp();
+      }
+    }
+
+    function updateHeaderBill() {
+      let totalBill = 0, totalPkts = 0;
+      products.forEach(p => {
+        totalBill += p.qty * p.price;
+        totalPkts += p.qty;
+      });
+      const billEl = document.getElementById('totalBill');
+      const pktsEl = document.getElementById('totalPkts');
+      if (billEl) billEl.innerText = totalBill.toLocaleString();
+      if (pktsEl) pktsEl.innerText = totalPkts;
+    }
+
+    function filterProducts(cat, btn) {
+      currentCategory = cat;
+      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+ 
