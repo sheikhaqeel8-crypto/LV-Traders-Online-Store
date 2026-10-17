@@ -31,7 +31,7 @@ body{background:#f4f6f9;color:#333;padding-top:115px;padding-bottom:80px}
 .product-img{width:100%;height:55vh;object-fit:contain;display:block;background:#f8f8f8}
 .product-info{padding:14px}
 .product-cat{display:inline-block;background:#fce4ec;color:#880e4f;font-size:11px;padding:3px 8px;border-radius:4px;margin-bottom:4px;font-weight:bold}
-.product-title{font-size:18px;font-weight:700;color:#111;margin-bottom:2px}
+.product-title{font-size:18px;font-weight:700;color:#111;margin-bottom:2px;overflow-wrap:anywhere}
 .product-desc{font-size:13px;color:#666;margin-bottom:12px}
 .price-cart-row{display:flex;justify-content:space-between;align-items:center;background:#fdf2f2;padding:10px 12px;border-radius:10px;border:1px solid #ffcdd2}
 .price-label{font-size:11px;color:#d32f2f}
@@ -117,6 +117,11 @@ body{background:#f4f6f9;color:#333;padding-top:115px;padding-bottom:80px}
     </div>
 
     <div class="admin-section">
+      <h3>🧾 Customer Orders (<span id="orderCount">0</span>)</h3>
+      <div id="adminOrdersList"></div>
+    </div>
+
+    <div class="admin-section">
       <h3>➕ Upload New Products from Gallery</h3>
       <input type="file" id="galleryInput" multiple accept="image/*" class="input-field" style="padding:8px" onchange="prepareGalleryFiles(this)">
       <div id="uploadPreviews"></div>
@@ -153,7 +158,7 @@ const CATEGORIES = ['Hats','Turbans','Socks','Warmer Suits','Mufflers','Trousers
 
 let db = null, products = [], customers = [], me = null, cartQty = {};
 let currentCategory = 'All', stagedUploads = [], isAdminView = false, currentUser = null;
-let unsubMe = null, unsubCusts = null;
+let unsubMe = null, unsubCusts = null, unsubOrders = null, orders = [];
 
 try { const s = localStorage.getItem('lv_active_user'); if (s) currentUser = JSON.parse(s); } catch (e) {}
 
@@ -202,6 +207,14 @@ function watchCustomers() {
   }, err => setSync('● Error: ' + (err.code || err.message)));
 }
 
+function watchOrders() {
+  if (!db || unsubOrders) return;
+  unsubOrders = db.collection('orders').orderBy('createdAt', 'desc').limit(50).onSnapshot(snap => {
+    orders = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+    if (isAdminView) renderOrders();
+  }, err => setSync('● Error: ' + (err.code || err.message)));
+}
+
 /* ---------- Screens ---------- */
 function hideAllViews() {
   ['viewAdminAuth','viewLogin','viewPending','viewStore','viewAdmin'].forEach(i => $(i).style.display = 'none');
@@ -233,6 +246,7 @@ function verifyAdminPass() {
   if ($('inpAdminPass').value.trim() === ADMIN_PASS) {
     isAdminView = true;
     watchCustomers();
+    watchOrders();
     updateScreenView();
   } else alert('غلط پاس ورڈ! دوبارہ کوشش کریں۔');
 }
@@ -350,21 +364,96 @@ function recalcBill() {
   $('totalPkts').innerText = pkts;
 }
 
-function sendOrderOnWhatsApp() {
-  const lines = []; let bill = 0, pkts = 0;
+function clip(s, n) { s = String(s); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+function loadImg(src) { return new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; }); }
+
+async function buildBillImage(items, bill, pkts) {
+  const W = 720, RH = 120, HH = 170, FH = 120;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = HH + items.length * RH + FH;
+  const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+  const g = x.createLinearGradient(0, 0, W, 0);
+  g.addColorStop(0, '#4a0e4e'); g.addColorStop(1, '#c62828');
+  x.fillStyle = g; x.fillRect(0, 0, W, HH);
+  x.fillStyle = '#fff'; x.font = 'bold 36px sans-serif'; x.fillText('LV TRADERS - ORDER', 24, 52);
+  x.font = '24px sans-serif';
+  x.fillText('Customer: ' + clip(currentUser.name, 40), 24, 92);
+  x.fillText('Phone: ' + currentUser.phone, 24, 124);
+  x.fillText(new Date().toLocaleString(), 24, 154);
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i], y = HH + i * RH;
+    if (i % 2) { x.fillStyle = '#faf4f7'; x.fillRect(0, y, W, RH); }
+    const img = await loadImg(it.img);
+    if (img) {
+      const sc = Math.min(100 / img.width, 100 / img.height), w = img.width * sc, h = img.height * sc;
+      x.drawImage(img, 24 + (100 - w) / 2, y + 10 + (100 - h) / 2, w, h);
+    }
+    x.fillStyle = '#111'; x.font = 'bold 26px sans-serif'; x.fillText(clip(it.name, 24), 144, y + 42);
+    x.fillStyle = '#666'; x.font = '22px sans-serif';
+    x.fillText(clip(it.category, 14) + '  |  Rs. ' + it.price.toLocaleString() + ' x ' + it.qty + ' Pkt', 144, y + 74);
+    x.fillStyle = '#c62828'; x.font = 'bold 24px sans-serif'; x.fillText('Rs. ' + it.total.toLocaleString(), 144, y + 104);
+  }
+  const fy = HH + items.length * RH;
+  x.fillStyle = '#880e4f'; x.fillRect(0, fy, W, FH);
+  x.fillStyle = '#fff'; x.font = 'bold 28px sans-serif';
+  x.fillText('Total Packets: ' + pkts, 24, fy + 48);
+  x.fillStyle = '#ffeb3b'; x.font = 'bold 36px sans-serif';
+  x.fillText('Total Bill: Rs. ' + bill.toLocaleString(), 24, fy + 94);
+  return new Promise(res => c.toBlob(res, 'image/jpeg', 0.85));
+}
+
+async function saveOrder(items, bill, pkts) {
+  if (!db) return;
+  try {
+    await db.collection('orders').add({
+      customerName: currentUser.name, phone: currentUser.phone,
+      items: items.map(i => ({ id: i.id, name: i.name, category: i.category, price: i.price, qty: i.qty, total: i.total })),
+      totalPkts: pkts, totalBill: bill, status: 'new', createdAt: Date.now()
+    });
+  } catch (e) { alert('آرڈر ایڈمن پینل میں محفوظ نہیں ہو سکا: ' + (e.code || e.message)); }
+}
+
+async function sendOrderOnWhatsApp() {
+  const items = []; let bill = 0, pkts = 0;
   products.forEach(p => {
     const q = cartQty[p.id] || 0;
-    if (q > 0) { const t = q * Number(p.price); bill += t; pkts += q; lines.push('• ' + p.name + ' (' + p.category + ') x ' + q + ' Pkt = Rs. ' + t.toLocaleString()); }
+    if (q > 0) { const t = q * Number(p.price); bill += t; pkts += q; items.push({ id: p.id, name: p.name, category: p.category, price: Number(p.price), qty: q, total: t, img: p.img }); }
   });
   if (!pkts) { alert('پہلے کچھ پراڈکٹ کارٹ میں شامل کریں۔'); return; }
-  const msg = '*LV TRADERS - NEW ORDER*\n*Customer:* ' + currentUser.name + '\n*Phone:* ' + currentUser.phone + '\n\n' + lines.join('\n') + '\n\n*Total Packets:* ' + pkts + '\n*Total Bill:* Rs. ' + bill.toLocaleString();
-  window.open('https://wa.me/' + ADMIN_WA + '?text=' + encodeURIComponent(msg), '_blank');
+
+  const text = '*LV TRADERS - NEW ORDER*\n*Customer:* ' + currentUser.name + '\n*Phone:* ' + currentUser.phone + '\n\n' +
+    items.map(i => '• ' + i.name + ' (' + i.category + ') x ' + i.qty + ' Pkt = Rs. ' + i.total.toLocaleString()).join('\n') +
+    '\n\n*Total Packets:* ' + pkts + '\n*Total Bill:* Rs. ' + bill.toLocaleString();
+
+  const btn = document.querySelector('.wa-order-btn');
+  btn.disabled = true; btn.innerText = 'Preparing bill...';
+  let sent = false;
+  try {
+    const blob = await buildBillImage(items, bill, pkts);
+    const file = new File([blob], 'LV-Traders-Order.jpg', { type: 'image/jpeg' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], text: text });
+      sent = true;
+    } else throw new Error('share-not-supported');
+  } catch (e) {
+    if (e && e.name === 'AbortError') { btn.disabled = false; btn.innerText = '📲 Send Order on WhatsApp'; return; }
+    window.open('https://wa.me/' + ADMIN_WA + '?text=' + encodeURIComponent(text), '_blank');
+    sent = true;
+  }
+  if (sent) {
+    await saveOrder(items, bill, pkts);
+    cartQty = {};
+    renderProductsFeed();
+  }
+  btn.disabled = false; btn.innerText = '📲 Send Order on WhatsApp';
 }
 
 /* ---------- Admin ---------- */
 function renderAdminLists() {
   $('custCount').innerText = customers.length;
   $('prodCount').innerText = products.length;
+  renderOrders();
 
   const cl = $('adminCustomersList');
   cl.innerHTML = customers.length ? customers.map(c => `
@@ -386,11 +475,49 @@ function renderAdminLists() {
         <div style="flex:1"><b>${esc(p.name)}</b><br><small>${esc(p.category)}</small></div>
       </div>
       <div class="flex" style="margin-top:8px">
+        <input type="text" class="input-field mini" style="margin:0" id="nm_${p.id}" value="${esc(p.name)}">
+        <button type="button" class="sm-btn" style="background:#6a1b9a;white-space:nowrap" onclick="updateName('${p.id}')">Save Name</button>
+      </div>
+      <div class="flex" style="margin-top:8px">
         <input type="number" class="input-field mini" style="margin:0" id="pr_${p.id}" value="${Number(p.price)}">
         <button type="button" class="sm-btn" style="background:#1976d2" onclick="updatePrice('${p.id}')">Save Price</button>
         <button type="button" class="sm-btn" style="background:#c62828" onclick="deleteProduct('${p.id}')">Delete</button>
       </div>
     </div>`).join('') : '<p style="font-size:12px;color:#777">ابھی کوئی پراڈکٹ نہیں ہے۔</p>';
+}
+
+function renderOrders() {
+  $('orderCount').innerText = orders.length;
+  const el = $('adminOrdersList');
+  el.innerHTML = orders.length ? orders.map(o => {
+    const rows = (o.items || []).map(it => {
+      const p = products.find(x => x.id === it.id);
+      return `<div class="flex" style="margin-top:6px">${p ? `<img class="thumb" src="${p.img}" alt="">` : '<div class="thumb"></div>'}
+        <div style="font-size:12px"><b>${esc(it.name)}</b><br>${it.qty} Pkt x Rs. ${Number(it.price).toLocaleString()} = Rs. ${Number(it.total).toLocaleString()}</div></div>`;
+    }).join('');
+    const done = o.status === 'done';
+    return `<div class="row-item" style="${done ? 'opacity:.65' : 'border-color:#2e7d32'}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div><b>${esc(o.customerName)}</b><br><small>${esc(o.phone)}<br>${new Date(o.createdAt).toLocaleString()}</small></div>
+        <span style="font-size:11px;font-weight:bold;color:${done ? '#777' : '#2e7d32'}">${done ? '✔ Done' : '● New'}</span>
+      </div>
+      ${rows}
+      <div style="margin-top:8px;font-weight:bold;color:#c62828">${o.totalPkts} Pkts &nbsp;|&nbsp; Rs. ${Number(o.totalBill).toLocaleString()}</div>
+      <div class="flex" style="margin-top:8px">
+        <button type="button" class="sm-btn" style="background:${done ? '#ef6c00' : '#2e7d32'}" onclick="setOrderStatus('${o.id}','${done ? 'new' : 'done'}')">${done ? 'Reopen' : 'Mark Done'}</button>
+        <button type="button" class="sm-btn" style="background:#c62828" onclick="deleteOrder('${o.id}')">Delete</button>
+      </div>
+    </div>`;
+  }).join('') : '<p style="font-size:12px;color:#777">ابھی کوئی آرڈر نہیں آیا۔</p>';
+}
+async function setOrderStatus(id, st) {
+  try { await db.collection('orders').doc(id).update({ status: st }); }
+  catch (e) { alert('Error: ' + (e.code || e.message)); }
+}
+async function deleteOrder(id) {
+  if (!confirm('یہ آرڈر ڈیلیٹ کر دیں؟')) return;
+  try { await db.collection('orders').doc(id).delete(); }
+  catch (e) { alert('Error: ' + (e.code || e.message)); }
 }
 
 async function setApproval(id, val) {
@@ -400,6 +527,12 @@ async function setApproval(id, val) {
 async function deleteCustomer(id) {
   if (!confirm('اس کسٹمر کو ہٹا دیں؟')) return;
   try { await db.collection('customers').doc(id).delete(); }
+  catch (e) { alert('Error: ' + (e.code || e.message)); }
+}
+async function updateName(id) {
+  const v = $('nm_' + id).value.trim();
+  if (!v) { alert('نام خالی نہیں ہو سکتا۔'); return; }
+  try { await db.collection('products').doc(id).update({ name: v }); alert('نام محفوظ ہو گیا۔'); }
   catch (e) { alert('Error: ' + (e.code || e.message)); }
 }
 async function updatePrice(id) {
@@ -432,12 +565,18 @@ function compressImage(file) {
   });
 }
 
+function nextItemNumber() {
+  let max = 0;
+  products.concat(stagedUploads).forEach(p => { const m = /^Item (\d+)$/.exec(p.name || ''); if (m) max = Math.max(max, +m[1]); });
+  return max + 1;
+}
+
 async function prepareGalleryFiles(input) {
   const files = Array.from(input.files || []);
   for (const f of files) {
     try {
       const data = await compressImage(f);
-      stagedUploads.push({ img: data, name: f.name.replace(/\.[^.]+$/, ''), category: CATEGORIES[0], price: '', desc: '12 Pcs Packet' });
+      stagedUploads.push({ img: data, name: 'Item ' + nextItemNumber(), category: CATEGORIES[0], price: '', desc: '12 Pcs Packet' });
     } catch (e) { alert(f.name + ' کھل نہیں سکی۔'); }
   }
   input.value = '';
