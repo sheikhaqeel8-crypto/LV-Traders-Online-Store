@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LV Traders - Wholesale PWA Store</title>
+  <!-- jsPDF Library for Generating PDF Bills with Images -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+    body { background-color: #15051a; color: #fff; padding-top: 120px; padding-bottom: 75px; }
+
+    /* Fixed Purple & Reddish Header */
+    .header {
+      position: fixed; top: 0; left: 0; width: 100%; z-index: 1000;
+      background: linear-gradient(135deg, #4a0e4e 0%, #880e4f 50%, #c62828 100%);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+    }
+    .header-top {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.15);
+    }
+    .brand { font-size: 18px; font-weight: 800; letter-spacing: 1px; color: #fff; }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .admin-btn, .logout-btn {
+      background: rgba(0,0,0,0.4); border: 1px solid #ff8a80; color: #fff;
+      padding: 5px 10px; border-radius: 6px; font-size: 12px; cursor: pointer;
+    }
+    .bill-box {
+      background: rgba(0,0,0,0.4); padding: 5px 10px; border-radius: 8px;
+      border: 1px solid #ff5252; text-align: right;
+    }
+    .bill-amount { font-size: 15px; font-weight: bold; color: #ffeb3b; }
+    .pkt-count { font-size: 11px; color: #ffcdd2; }
+
+    /* Categories Bar */
+    .categories {
+      display: flex; overflow-x: auto; gap: 8px; padding: 10px 14px;
+      background: #23062b; scrollbar-width: none;
+    }
+    .categories::-webkit-scrollbar { display: none; }
+    .cat-btn {
+      background: #4a148c; color: #fff; border: 1px solid #ad1457;
+      padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
+      white-space: nowrap; cursor: pointer;
+    }
+    .cat-btn.active {
+      background: linear-gradient(90deg, #d32f2f, #ad1457);
+      border-color: #ff8a80; box-shadow: 0 2px 8px rgba(211,47,47,0.6);
+    }
+
+    /* Views container */
+    .container { max-width: 500px; margin: 0 auto; padding: 0 10px; }
+
+    /* Login Screen */
+    .auth-card {
+      background: #270933; border: 2px solid #880e4f; padding: 24px;
+      border-radius: 16px; margin-top: 40px; text-align: center;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.7);
+    }
+    .auth-card h2 { color: #ff8a80; margin-bottom: 8px; font-size: 22px; }
+    .auth-card p { font-size: 13px; color: #e1bee7; margin-bottom: 20px; }
+    .input-field {
+      width: 100%; padding: 12px; margin-bottom: 12px; background: #1a0521;
+      border: 1px solid #880e4f; color: #fff; border-radius: 8px; font-size: 14px;
+    }
+    .primary-btn {
+      width: 100%; padding: 12px; background: linear-gradient(90deg, #c62828, #6a1b9a);
+      border: none; color: #fff; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 15px;
+    }
+
+    /* Full Screen Vertical Feed */
+    .product-item {
+      background: #23062b; margin-bottom: 20px; border-radius: 12px;
+      overflow: hidden; border: 1px solid #880e4f;
+    }
+    .product-img {
+      width: 100%; height: 62vh; object-fit: cover; display: block; background: #1a0521;
+    }
+    .product-info { padding: 14px; background: linear-gradient(180deg, #23062b 0%, #15051a 100%); }
+    .product-cat {
+      display: inline-block; background: #880e4f; color: #ffcdd2;
+      font-size: 10px; padding: 2px 8px; border-radius: 4px; margin-bottom: 4px; font-weight: bold;
+    }
+    .product-title { font-size: 18px; font-weight: 700; color: #ffffff; margin-bottom: 2px; }
+    .product-desc { font-size: 13px; color: #d1c4e9; margin-bottom: 12px; }
+
+    .price-cart-row {
+      display: flex; justify-content: space-between; align-items: center;
+      background: rgba(255,255,255,0.04); padding: 10px 12px; border-radius: 10px;
+      border: 1px solid rgba(211,47,47,0.3);
+    }
+    .price-label { font-size: 11px; color: #f8bbd0; }
+    .price-val { font-size: 18px; font-weight: 800; color: #ff5252; }
+
+    .qty-controls { display: flex; align-items: center; gap: 10px; }
+    .qty-btn {
+      width: 38px; height: 38px; border-radius: 8px; border: none;
+      font-size: 20px; font-weight: bold; color: #fff; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .btn-minus { background: #4a148c; border: 1px solid #ab47bc; }
+    .btn-plus { background: linear-gradient(135deg, #d32f2f, #ad1457); }
+    .qty-display { font-size: 15px; font-weight: bold; min-width: 50px; text-align: center; }
+
+    /* Bottom WhatsApp & PDF Bar */
+    .bottom-bar {
+      position: fixed; bottom: 0; left: 0; width: 100%; padding: 10px 14px;
+      background: #1e0524; border-top: 1px solid #880e4f; z-index: 1000; display: flex; gap: 10px;
+    }
+    .wa-btn {
+      flex: 1; background: linear-gradient(90deg, #2e7d32, #1b5e20); color: #fff;
+      border: 1px solid #81c784; padding: 12px; border-radius: 8px;
+      font-size: 14px; font-weight: bold; cursor: pointer; text-align: center;
+    }
+
+    /* Admin Panel Styles */
+    .admin-panel { background: #1c0524; padding: 15px; border-radius: 12px; margin-top: 10px; }
+    .admin-section { background: #270933; padding: 12px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #880e4f; }
+    .admin-section h3 { font-size: 15px; color: #ff8a80; margin-bottom: 10px; }
+    .user-row, .product-row-admin {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #1a0521; padding: 8px 10px; border-radius: 6px; margin-bottom: 8px; font-size: 13px;
+    }
+    .btn-approve { background: #2e7d32; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+    .btn-remove { background: #c62828; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+  </style>
+</head>
+<body>
+
+  <!-- FIXED HEADER -->
+  <div class="header">
+    <div class="header-top">
+      <div class="brand">LV TRADERS</div>
+      <div class="header-actions">
+        <button class="admin-btn" onclick="toggleAdminPanel()">⚙️ Admin</button>
+        <button class="logout-btn" onclick="logoutUser()" id="logoutBtn" style="display:none;">Logout</button>
+      </div>
+      <div class="bill-box">
+        <div class="bill-amount">Bill: Rs. <span id="totalBill">0</span></div>
+        <div class="pkt-count">Cart: <span id="totalPkts">0</span> Pkts</div>
+      </div>
+    </div>
+    <div class="categories" id="categoryBar">
+      <button class="cat-btn active" onclick="filterProducts('All', this)">All Items</button>
+      <button class="cat-btn" onclick="filterProducts('Hats', this)">Hats</button>
+      <button class="cat-btn" onclick="filterProducts('Socks', this)">Socks</button>
+      <button class="cat-btn" onclick="filterProducts('Turbans', this)">Turbans</button>
+      <button class="cat-btn" onclick="filterProducts('Warmer Suits', this)">Warmer Suits</button>
+      <button class="cat-btn" onclick="filterProducts('Mufflers', this)">Mufflers</button>
+      <button class="cat-btn" onclick="filterProducts('Trousers', this)">Trousers</button>
+    </div>
+  </div>
+
+  <div class="container" id="mainContainer">
+    <!-- Dynamic content loads here -->
+  </div>
+
+  <!-- BOTTOM WHATSAPP BAR -->
+  <div class="bottom-bar" id="bottomBar" style="display:none;">
+    <button class="wa-btn" onclick="generatePDFAndWhatsApp()">📲 Send PDF Bill to WhatsApp</button>
+  </div>
+
+  <script>
+    // Initial Mock Data
+    let currentUser = JSON.parse(localStorage.getItem('lv_user')) || null;
+    let isAdminLoggedIn = localStorage.getItem('lv_admin') === 'true';
+
+    let customers = JSON.parse(localStorage.getItem('lv_customers')) || [
+      { name: "Ali Garments", shop: "Raja Bazar", phone: "03001234567", approved: true },
+      { name: "Usman Hosiery", shop: "Liberty Market", phone: "03217654321", approved: false }
+    ];
+
+    let products = JSON.parse(localStorage.getItem('lv_products')) || [
+      { id: 1, name: "Baby Feather Wool Turban", category: "Turbans", desc: "12 Pcs Packet - Assorted Winter Colors", price: 1800, qty: 0, img: "https://images.unsplash.com/photo-1576871337632-b9aef4c17ab9?w=800&q=80" },
+      { id: 2, name: "Kids Knitted Winter Hat", category: "Hats", desc: "12 Pcs Packet - Double Fur Inside", price: 2200, qty: 0, img: "https://images.unsplash.com/photo-1576871337622-98d48d1cf531?w=800&q=80" },
+      { id: 3, name: "Children Towel Warm Socks", category: "Socks", desc: "24 Pairs Packet - High Elastic Grip", price: 1400, qty: 0, img: "https://images.unsplash.com/photo-1586350977771-b3b0abd50c82?w=800&q=80" },
+      { id: 4, name: "Kids Thermal Warmer Suit", category: "Warmer Suits", desc: "6 Suits Box - Heavy Fleece Inner", price: 3600, qty: 0, img: "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=800&q=80" }
+    ];
+
+    let currentCategory = 'All';
+
+    function renderApp() {
+      const container = document.getElementById('mainContainer');
+      const bottomBar = document.getElementById('bottomBar');
+      const logoutBtn = document.getElementById('logoutBtn');
+      const headerCategories = document.getElementById('categoryBar');
+
+      if (isAdminLoggedIn) {
+        headerCategories.style.display = 'none';
+        bottomBar.style.display = 'none';
+        logoutBtn.style.display = 'block';
+        renderAdminPanel();
+        return;
+      }
+
+      if (!currentUser) {
+        headerCategories.style.display = 'none';
+        bottomBar.style.display = 'none';
+        logoutBtn.style.display = 'none';
+        container.innerHTML = `
+          <div class="auth-card">
+            <h2>LV TRADERS - LOGIN</h2>
+            <p>Enter your details to request access to the wholesale store.</p>
+            <input type="text" id="regName" class="input-field" placeholder="Your Name / Owner Name">
+            <input type="text" id="regShop" class="input-field" placeholder="Shop Name & City">
+            <input type="tel" id="regPhone" class="input-field" placeholder="Mobile / WhatsApp Number">
+            <button class="primary-btn" onclick="registerUser()">Request Store Access</button>
+          </div>
+        `;
+        return;
+      }
+
+      const activeCust = customers.find(c => c.phone === currentUser.phone);
+      if (!activeCust || !activeCust.approved) {
+        headerCategories.style.display = 'none';
+        bottomBar.style.display = 'none';
+        logoutBtn.style.display = 'block';
+        container.innerHTML = `
+          <div class="auth-card">
+            <h2>⏳ Approval Pending</h2>
+            <p>Your account is waiting for Admin Approval by LV Traders. You will get access once approved.</p>
+            <button class="primary-btn" onclick="logoutUser()" style="background:#4a148c; margin-top:15px;">Switch Account / Logout</button>
+          </div>
+        `;
+        return;
+      }
+
+      // Customer Store View
+      headerCategories.style.display = 'flex';
+      bottomBar.style.display = 'flex';
+      logoutBtn.style.display = 'block';
+      
+      let html = '<div class="feed-container">';
+      const filtered = currentCategory === 'All' ? products : products.filter(p => p.category === currentCategory);
+      
+      filtered.forEach(p => {
+        html += `
+          <div class="product-item">
+            <img src="${p.img}" class="product-img" alt="${p.name}">
+            <div class="product-info">
+              <span class="product-cat">${p.category}</span>
+              <div class="product-title">${p.name}</div>
+              <div class="product-desc">${p.desc}</div>
+              <div class="price-cart-row">
+                <div>
+                  <div class="price-label">Packet Price</div>
+                  <div class="price-val">Rs. ${p.price.toLocaleString()}</div>
+                </div>
+                <div class="qty-controls">
+                  <button class="qty-btn btn-minus" onclick="updateQty(${p.id}, -1)">−</button>
+                  <div class="qty-display">${p.qty} Pkt</div>
+                  <button class="qty-btn btn-plus" onclick="updateQty(${p.id}, 1)">+</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      html += '</div>';
+      container.innerHTML = html;
+      updateHeaderBill();
+    }
+
+    function registerUser() {
+      const name = document.getElementById('regName').value.trim();
+      const shop = document.getElementById('regShop').value.trim();
+      const phone = document.getElementById('regPhone').value.trim();
+      if (!name || !shop || !phone) { alert("Please fill in all fields!"); return; }
+
+      customers.push({ name, shop, phone, approved: false });
+      localStorage.setItem('lv_customers', JSON.stringify(customers));
+      currentUser = { name, phone };
+      localStorage.setItem('lv_user', JSON.stringify(currentUser));
+      renderApp();
+    }
+
+    function logoutUser() {
+      currentUser = null;
+      isAdminLoggedIn = false;
+      localStorage.removeItem('lv_user');
+      localStorage.removeItem('lv_admin');
+      renderApp();
+    }
+
+    function toggleAdminPanel() {
+      if (isAdminLoggedIn) {
+        isAdminLoggedIn = false;
+        localStorage.removeItem('lv_admin');
+      } else {
+        let pass = prompt("Enter Admin Password:");
+        if (pass === "admin123") {
+          isAdminLoggedIn = true;
+          localStorage.setItem('lv_admin', 'true');
+        } else if (pass !== null) {
+          alert("Incorrect Password!");
+        }
+      }
+      renderApp();
+    }
+
+    function renderAdminPanel() {
+      const container = document.getElementById('mainContainer');
+      let custHtml = '';
+      customers.forEach((c, idx) => {
+        custHtml += `
+          <div class="user-row">
+            <div><b>${c.name}</b> (${c.shop})<br><small>${c.phone}</small></div>
+            <div>
+              ${c.approved ? '<span style="color:#81c784; font-size:11px; margin-right:5px;">Approved</span>' : `<button class="btn-approve" onclick="approveCust(${idx})">Approve</button>`}
+              <button class="btn-remove" onclick="removeCust(${idx})">Remove</button>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = `
+        <div class="admin-panel">
+          <h2 style="color:#ff8a80; margin-bottom:15px;">LV Traders - Admin Panel</h2>
+          
+          <div class="admin-section">
+            <h3>👥 Customer Approvals & Access Control</h3>
+            ${custHtml || '<p>No customers registered yet.</p>'}
+          </div>
+
+          <div class="admin-section">
+            <h3>📦 Bulk Upload Products from Gallery</h3>
+            <input type="file" id="bulkFiles" multiple accept="image/*" class="input-field" style="padding:8px;">
+            <input type="text" id="bulkName" class="input-field" placeholder="Product Name (e.g. Winter Turban)">
+            <select id="bulkCat" class="input-field">
+              <option value="Turbans">Turbans</option>
+              <option value="Hats">Hats</option>
+              <option value="Socks">Socks</option>
+              <option value="Warmer Suits">Warmer Suits</option>
+              <option value="Mufflers">Mufflers</option>
+              <option value="Trousers">Trousers</option>
+            </select>
+            <input type="number" id="bulkPrice" class="input-field" placeholder="Packet Price (Rs)">
+            <input type="text" id="bulkDesc" class="input-field" placeholder="Description (e.g. 12 Pcs Packet)">
+            <button class="primary-btn" onclick="uploadProducts()">Publish to Store</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function approveCust(idx) {
+      customers[idx].approved = true;
+      localStorage.setItem('lv_customers', JSON.stringify(customers));
+      renderAdminPanel();
+    }
+
+    function removeCust(idx) {
+      if (confirm("Are you sure you want to remove this customer?")) {
+        customers.splice(idx, 1);
+        localStorage.setItem('lv_customers', JSON.stringify(customers));
+        renderAdminPanel();
+      }
+    }
+
+    function uploadProducts() {
+      const fileInput = document.getElementById('bulkFiles');
+      const name = document.getElementById('bulkName').value;
+      const category = document.getElementById('bulkCat').value;
+      const price = Number(document.getElementById('bulkPrice').value);
+      const desc = document.getElementById('bulkDesc').value;
+
+      if (!fileInput.files.length || !name || !price) {
+        alert("Please select images and fill name & price!");
+        return;
+      }
+
+      Array.from(fileInput.files).forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          products.push({
+            id: Date.now() + index,
+            name: name,
+            category: category,
+            desc: desc || "Standard Packet",
+            price: price,
+            qty: 0,
+            img: e.target.result
+          });
+          localStorage.setItem('lv_products', JSON.stringify(products));
+          if (index === fileInput.files.length - 1) {
+            alert("Products uploaded successfully!");
+            renderAdminPanel();
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function updateQty(id, change) {
+      const item = products.find(p => p.id === id);
+      if (item.qty + change >= 0) {
+        item.qty += change;
+        updateHeaderBill();
+        renderApp();
+      }
+    }
+
+    function updateHeaderBill() {
+      let totalBill = 0, totalPkts = 0;
+      products.forEach(p => {
+        totalBill += p.qty * p.price;
+        totalPkts += p.qty;
+      });
+      document.getElementById('totalBill').innerText = totalBill.toLocaleString();
+      document.getElementById('totalPkts').innerText = totalPkts;
+    }
+
+    function filterProducts(cat, btn) {
+      currentCategory = cat;
+      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderApp();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function generatePDFAndWhatsApp() {
+      const selected = products.filter(p => p.qty > 0);
+      if (!selected.length) { alert("Please add at least 1 packet to your cart!"); return; }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(20);
+      doc.setTextColor(74, 14, 78);
+      doc.text("LV TRADERS - WHOLESALE ORDER", 14, 20);
+
+      doc.setFontSize(11);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Customer: ${currentUser.name} (${currentUser.phone})`, 14, 28);
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 34);
+
+      let y = 45;
+      let totalAmount = 0;
+
+      selected.forEach((p, index) => {
+        if (y > 250) { doc.addPage(); y = 20; }
+        let subtotal = p.qty * p.price;
+        totalAmount += subtotal;
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`${index + 1}. ${p.name}`, 14, y);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.text(`Category: ${p.category} | ${p.desc}`, 14, y + 6);
+        doc.text(`Ordered: ${p.qty} Pkts x Rs. ${p.price.toLocaleString()} = Rs. ${subtotal.toLocaleString()}`, 14, y + 12);
+
+        // Draw small image preview in PDF if available
+        try {
+          doc.addImage(p.img, 'JPEG', 150, y - 4, 25, 25);
+        } catch(e) {}
+
+        doc.setDrawColor(200, 200, 200);
+        doc.line(14, y + 18, 196, y + 18);
+        y += 26;
+      });
+
+      y += 5;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(198, 40, 40);
+      doc.text(`TOTAL BILL: Rs. ${totalAmount.toLocaleString()}`, 14, y);
+
+      // Save PDF locally
+      doc.save("LV_Traders_Order.pdf");
+
+      // Ope
