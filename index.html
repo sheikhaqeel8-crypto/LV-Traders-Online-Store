@@ -57,11 +57,10 @@ body{background:#f4f6f9;color:#333;padding-top:115px;padding-bottom:80px}
 <div class="header">
   <div class="header-top">
     <div>
-      <div class="brand">LV TRADERS</div>
+      <div class="brand" id="brand" style="user-select:none;-webkit-user-select:none">LV TRADERS</div>
       <span id="syncStatus" class="sync-badge">● Ready</span>
     </div>
     <div class="header-actions">
-      <button type="button" class="top-btn" onclick="showAdminLoginBox()">⚙️ Admin</button>
       <button type="button" id="btnLogout" class="top-btn" onclick="logoutUser()" style="display:none">Logout</button>
     </div>
     <div class="bill-box">
@@ -78,7 +77,7 @@ body{background:#f4f6f9;color:#333;padding-top:115px;padding-bottom:80px}
     <h2>⚙️ Admin Login</h2>
     <p>ایڈمن پینل کھولنے کے لیے پاس ورڈ درج کریں۔</p>
     <input type="password" id="inpAdminPass" class="input-field" placeholder="Enter Admin Password">
-    <button type="button" class="primary-btn" onclick="verifyAdminPass()">Open Admin Panel</button>
+    <button type="button" id="btnAdminLogin" class="primary-btn" onclick="verifyAdminPass()">Open Admin Panel</button>
     <button type="button" class="primary-btn" style="background:#777" onclick="updateScreenView()">Cancel</button>
   </div>
 
@@ -100,6 +99,19 @@ body{background:#f4f6f9;color:#333;padding-top:115px;padding-bottom:80px}
 
   <div id="viewStore" style="display:none;margin-top:10px">
     <div id="productsFeed"></div>
+  </div>
+
+  <div id="viewMyOrders" style="display:none;margin-top:10px">
+    <div class="admin-section">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <h2 style="color:#880e4f;font-size:18px">📋 My Orders</h2>
+        <div class="flex">
+          <button type="button" class="sm-btn" style="background:#1976d2" onclick="showMyOrders()">🔄 Refresh</button>
+          <button type="button" class="sm-btn" style="background:#512da8" onclick="closeMyOrders()">← Back</button>
+        </div>
+      </div>
+    </div>
+    <div id="myOrdersList"></div>
   </div>
 
   <div id="viewAdmin" style="display:none;margin-top:10px">
@@ -136,11 +148,15 @@ body{background:#f4f6f9;color:#333;padding-top:115px;padding-bottom:80px}
 </div>
 
 <div class="bottom-bar" id="bottomBar">
-  <button type="button" class="wa-order-btn" onclick="sendOrderOnWhatsApp()">📲 Send Order on WhatsApp</button>
+  <div class="flex">
+    <button type="button" class="wa-order-btn" style="width:auto;flex:0 0 36%;background:#6a1b9a;font-size:14px" onclick="showMyOrders()">📋 My Orders</button>
+    <button type="button" id="btnSendOrder" class="wa-order-btn" style="width:auto;flex:1;font-size:14px" onclick="sendOrderOnWhatsApp()">📲 Send Order</button>
+  </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script>
 /* ============ SETTINGS: صرف یہی حصہ بدلیں ============ */
 const FIREBASE_CONFIG = {
@@ -152,12 +168,13 @@ const FIREBASE_CONFIG = {
   appId: "1:735144169670:web:3d2372fa828cddd72d87c7"
 };
 const ADMIN_WA = "923335180450";
-const ADMIN_PASS = "admin123";   // اسے ضرور بدل لیں
+const ADMIN_EMAIL = "admin@lvtraders.com";   // Firebase Authentication میں یہی ای میل بنائیں
 const CATEGORIES = ['Hats','Turbans','Socks','Warmer Suits','Mufflers','Trousers'];
 /* ====================================================== */
 
-let db = null, products = [], customers = [], me = null, cartQty = {};
+let db = null, auth = null, products = [], customers = [], me = null, cartQty = {};
 let currentCategory = 'All', stagedUploads = [], isAdminView = false, currentUser = null;
+let showingMyOrders = false, myOrders = [];
 let unsubMe = null, unsubCusts = null, unsubOrders = null, orders = [];
 
 try { const s = localStorage.getItem('lv_active_user'); if (s) currentUser = JSON.parse(s); } catch (e) {}
@@ -174,6 +191,7 @@ function initFirebase() {
     if (String(FIREBASE_CONFIG.apiKey).indexOf('PASTE') === 0) throw new Error('Config missing');
     firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.firestore();
+    try { auth = firebase.auth(); } catch (e) { auth = null; }
     setSync('● Connecting...');
     db.collection('products').orderBy('createdAt', 'desc').onSnapshot(snap => {
       products = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
@@ -217,7 +235,7 @@ function watchOrders() {
 
 /* ---------- Screens ---------- */
 function hideAllViews() {
-  ['viewAdminAuth','viewLogin','viewPending','viewStore','viewAdmin'].forEach(i => $(i).style.display = 'none');
+  ['viewAdminAuth','viewLogin','viewPending','viewStore','viewAdmin','viewMyOrders'].forEach(i => $(i).style.display = 'none');
   $('categoryBar').style.display = 'none';
   $('bottomBar').style.display = 'none';
 }
@@ -228,6 +246,7 @@ function updateScreenView() {
   if (isAdminView) { $('viewAdmin').style.display = 'block'; renderAdminLists(); return; }
   if (!currentUser) { $('viewLogin').style.display = 'block'; return; }
   if (!me || !me.approved) { $('viewPending').style.display = 'block'; return; }
+  if (showingMyOrders) { $('viewMyOrders').style.display = 'block'; return; }
   $('categoryBar').style.display = 'flex';
   $('bottomBar').style.display = 'block';
   $('viewStore').style.display = 'block';
@@ -237,18 +256,32 @@ function updateScreenView() {
 
 function showAdminLoginBox() {
   if (isAdminView) { isAdminView = false; updateScreenView(); return; }
+  if (auth && auth.currentUser && auth.currentUser.email === ADMIN_EMAIL) { enterAdmin(); return; }
   hideAllViews();
   $('inpAdminPass').value = '';
   $('viewAdminAuth').style.display = 'block';
 }
 
-function verifyAdminPass() {
-  if ($('inpAdminPass').value.trim() === ADMIN_PASS) {
-    isAdminView = true;
-    watchCustomers();
-    watchOrders();
-    updateScreenView();
-  } else alert('غلط پاس ورڈ! دوبارہ کوشش کریں۔');
+function enterAdmin() {
+  isAdminView = true;
+  watchCustomers();
+  watchOrders();
+  updateScreenView();
+}
+
+async function verifyAdminPass() {
+  const pass = $('inpAdminPass').value;
+  if (!auth) { alert('Firebase Authentication لوڈ نہیں ہوا۔ صفحہ ریفریش کریں۔'); return; }
+  if (!pass) { alert('پاس ورڈ لکھیں۔'); return; }
+  const btn = $('btnAdminLogin');
+  btn.disabled = true; btn.innerText = 'Please wait...';
+  try {
+    await auth.signInWithEmailAndPassword(ADMIN_EMAIL, pass);
+    enterAdmin();
+  } catch (e) {
+    alert('پاس ورڈ غلط ہے یا ایڈمن اکاؤنٹ نہیں بنا۔ (' + (e.code || e.message) + ')');
+  }
+  btn.disabled = false; btn.innerText = 'Open Admin Panel';
 }
 
 function closeAdminPanel() { isAdminView = false; updateScreenView(); }
@@ -267,9 +300,8 @@ async function handleUserLogin() {
   try {
     const ref = db.collection('customers').doc(id);
     const snap = await ref.get();
-    if (snap.exists) await ref.update({ name: name });
-    else await ref.set({ name: name, phone: phone, approved: false, createdAt: Date.now() });
-    currentUser = { name: name, phone: phone };
+    if (!snap.exists) await ref.set({ name: name, phone: phone, approved: false, createdAt: Date.now() });
+    currentUser = { name: snap.exists ? (snap.data().name || name) : name, phone: phone };
     try { localStorage.setItem('lv_active_user', JSON.stringify(currentUser)); } catch (e) {}
     watchMe();
     updateScreenView();
@@ -298,6 +330,10 @@ async function checkNow() {
 
 function logoutUser() {
   if (unsubMe) { unsubMe(); unsubMe = null; }
+  if (auth && auth.currentUser) auth.signOut().catch(() => {});
+  if (unsubCusts) { unsubCusts(); unsubCusts = null; }
+  if (unsubOrders) { unsubOrders(); unsubOrders = null; }
+  customers = []; orders = []; showingMyOrders = false;
   currentUser = null; me = null; isAdminView = false; cartQty = {};
   try { localStorage.removeItem('lv_active_user'); } catch (e) {}
   updateScreenView();
@@ -364,61 +400,27 @@ function recalcBill() {
   $('totalPkts').innerText = pkts;
 }
 
-function clip(s, n) { s = String(s); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
-function loadImg(src) { return new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; }); }
-
-async function buildBillImage(items, bill, pkts) {
-  const W = 720, RH = 120, HH = 170, FH = 120;
-  const c = document.createElement('canvas');
-  c.width = W; c.height = HH + items.length * RH + FH;
-  const x = c.getContext('2d');
-  x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
-  const g = x.createLinearGradient(0, 0, W, 0);
-  g.addColorStop(0, '#4a0e4e'); g.addColorStop(1, '#c62828');
-  x.fillStyle = g; x.fillRect(0, 0, W, HH);
-  x.fillStyle = '#fff'; x.font = 'bold 36px sans-serif'; x.fillText('LV TRADERS - ORDER', 24, 52);
-  x.font = '24px sans-serif';
-  x.fillText('Customer: ' + clip(currentUser.name, 40), 24, 92);
-  x.fillText('Phone: ' + currentUser.phone, 24, 124);
-  x.fillText(new Date().toLocaleString(), 24, 154);
-  for (let i = 0; i < items.length; i++) {
-    const it = items[i], y = HH + i * RH;
-    if (i % 2) { x.fillStyle = '#faf4f7'; x.fillRect(0, y, W, RH); }
-    const img = await loadImg(it.img);
-    if (img) {
-      const sc = Math.min(100 / img.width, 100 / img.height), w = img.width * sc, h = img.height * sc;
-      x.drawImage(img, 24 + (100 - w) / 2, y + 10 + (100 - h) / 2, w, h);
-    }
-    x.fillStyle = '#111'; x.font = 'bold 26px sans-serif'; x.fillText(clip(it.name, 24), 144, y + 42);
-    x.fillStyle = '#666'; x.font = '22px sans-serif';
-    x.fillText(clip(it.category, 14) + '  |  Rs. ' + it.price.toLocaleString() + ' x ' + it.qty + ' Pkt', 144, y + 74);
-    x.fillStyle = '#c62828'; x.font = 'bold 24px sans-serif'; x.fillText('Rs. ' + it.total.toLocaleString(), 144, y + 104);
-  }
-  const fy = HH + items.length * RH;
-  x.fillStyle = '#880e4f'; x.fillRect(0, fy, W, FH);
-  x.fillStyle = '#fff'; x.font = 'bold 28px sans-serif';
-  x.fillText('Total Packets: ' + pkts, 24, fy + 48);
-  x.fillStyle = '#ffeb3b'; x.font = 'bold 36px sans-serif';
-  x.fillText('Total Bill: Rs. ' + bill.toLocaleString(), 24, fy + 94);
-  return new Promise(res => c.toBlob(res, 'image/jpeg', 0.85));
-}
-
 async function saveOrder(items, bill, pkts) {
-  if (!db) return;
+  if (!db) return false;
   try {
-    await db.collection('orders').add({
-      customerName: currentUser.name, phone: currentUser.phone,
+    const ref = await db.collection('orders').add({
+      customerName: currentUser.name, phone: currentUser.phone, phoneId: cleanPhone(currentUser.phone),
       items: items.map(i => ({ id: i.id, name: i.name, category: i.category, price: i.price, qty: i.qty, total: i.total })),
       totalPkts: pkts, totalBill: bill, status: 'new', createdAt: Date.now()
     });
-  } catch (e) { alert('آرڈر ایڈمن پینل میں محفوظ نہیں ہو سکا: ' + (e.code || e.message)); }
+    addMyOrderId(ref.id);
+    return true;
+  } catch (e) {
+    alert('آرڈر ایڈمن پینل میں محفوظ نہیں ہو سکا: ' + (e.code || e.message));
+    return false;
+  }
 }
 
 async function sendOrderOnWhatsApp() {
   const items = []; let bill = 0, pkts = 0;
   products.forEach(p => {
     const q = cartQty[p.id] || 0;
-    if (q > 0) { const t = q * Number(p.price); bill += t; pkts += q; items.push({ id: p.id, name: p.name, category: p.category, price: Number(p.price), qty: q, total: t, img: p.img }); }
+    if (q > 0) { const t = q * Number(p.price); bill += t; pkts += q; items.push({ id: p.id, name: p.name, category: p.category, price: Number(p.price), qty: q, total: t }); }
   });
   if (!pkts) { alert('پہلے کچھ پراڈکٹ کارٹ میں شامل کریں۔'); return; }
 
@@ -426,27 +428,62 @@ async function sendOrderOnWhatsApp() {
     items.map(i => '• ' + i.name + ' (' + i.category + ') x ' + i.qty + ' Pkt = Rs. ' + i.total.toLocaleString()).join('\n') +
     '\n\n*Total Packets:* ' + pkts + '\n*Total Bill:* Rs. ' + bill.toLocaleString();
 
-  const btn = document.querySelector('.wa-order-btn');
-  btn.disabled = true; btn.innerText = 'Preparing bill...';
-  let sent = false;
-  try {
-    const blob = await buildBillImage(items, bill, pkts);
-    const file = new File([blob], 'LV-Traders-Order.jpg', { type: 'image/jpeg' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], text: text });
-      sent = true;
-    } else throw new Error('share-not-supported');
-  } catch (e) {
-    if (e && e.name === 'AbortError') { btn.disabled = false; btn.innerText = '📲 Send Order on WhatsApp'; return; }
-    window.open('https://wa.me/' + ADMIN_WA + '?text=' + encodeURIComponent(text), '_blank');
-    sent = true;
+  const btn = $('btnSendOrder');
+  btn.disabled = true; btn.innerText = 'Sending...';
+  const saving = saveOrder(items, bill, pkts);
+  window.open('https://wa.me/' + ADMIN_WA + '?text=' + encodeURIComponent(text), '_blank');
+  const ok = await saving;
+  if (ok) { cartQty = {}; renderProductsFeed(); }
+  btn.disabled = false; btn.innerText = '📲 Send Order';
+}
+
+/* ---------- My Orders (customer) ---------- */
+function myOrdersKey() { return 'lv_my_orders_' + cleanPhone(currentUser.phone); }
+function getMyOrderIds() { try { return JSON.parse(localStorage.getItem(myOrdersKey()) || '[]'); } catch (e) { return []; } }
+function addMyOrderId(id) {
+  const a = getMyOrderIds(); a.unshift(id);
+  try { localStorage.setItem(myOrdersKey(), JSON.stringify(a.slice(0, 50))); } catch (e) {}
+}
+
+async function showMyOrders() {
+  showingMyOrders = true;
+  updateScreenView();
+  $('myOrdersList').innerHTML = '<p style="text-align:center;color:#777;margin-top:20px">Loading...</p>';
+  const ids = getMyOrderIds();
+  myOrders = [];
+  if (ids.length && db) {
+    try {
+      const docs = await Promise.all(ids.map(id => db.collection('orders').doc(id).get()));
+      myOrders = docs.filter(d => d.exists).map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => b.createdAt - a.createdAt);
+    } catch (e) { setSync('● Error: ' + (e.code || e.message)); }
   }
-  if (sent) {
-    await saveOrder(items, bill, pkts);
-    cartQty = {};
-    renderProductsFeed();
+  renderMyOrders();
+}
+
+function closeMyOrders() { showingMyOrders = false; updateScreenView(); }
+
+function renderMyOrders() {
+  const el = $('myOrdersList');
+  if (!myOrders.length) {
+    el.innerHTML = '<div class="card-box"><h3>No Orders Yet</h3><p>آپ نے ابھی تک اس فون سے کوئی آرڈر نہیں دیا۔</p></div>';
+    return;
   }
-  btn.disabled = false; btn.innerText = '📲 Send Order on WhatsApp';
+  el.innerHTML = myOrders.map(o => {
+    const done = o.status === 'done';
+    const rows = (o.items || []).map(it => {
+      const p = products.find(x => x.id === it.id);
+      return `<div class="flex" style="margin-top:6px">${p ? `<img class="thumb" src="${p.img}" alt="">` : '<div class="thumb"></div>'}
+        <div style="font-size:12px"><b>${esc(it.name)}</b><br>${it.qty} Pkt x Rs. ${Number(it.price).toLocaleString()} = Rs. ${Number(it.total).toLocaleString()}</div></div>`;
+    }).join('');
+    return `<div class="admin-section">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <small>${new Date(o.createdAt).toLocaleString()}</small>
+        <span style="font-size:12px;font-weight:bold;color:${done ? '#2e7d32' : '#ef6c00'}">${done ? '✔ Completed' : '⏳ Received'}</span>
+      </div>
+      ${rows}
+      <div style="margin-top:8px;font-weight:bold;color:#c62828">${o.totalPkts} Pkts &nbsp;|&nbsp; Rs. ${Number(o.totalBill).toLocaleString()}</div>
+    </div>`;
+  }).join('');
 }
 
 /* ---------- Admin ---------- */
@@ -622,6 +659,17 @@ async function publishAllProducts() {
 initFirebase();
 watchMe();
 updateScreenView();
+
+/* ---------- Hidden admin access: لوگو پر 5 بار جلدی جلدی دبائیں، یا لنک کے آخر میں #admin لگائیں ---------- */
+let brandTaps = 0, brandTimer = null;
+$('brand').addEventListener('click', () => {
+  brandTaps++;
+  clearTimeout(brandTimer);
+  brandTimer = setTimeout(() => { brandTaps = 0; }, 2000);
+  if (brandTaps >= 5) { brandTaps = 0; showAdminLoginBox(); }
+});
+window.addEventListener('hashchange', () => { if (location.hash === '#admin') showAdminLoginBox(); });
+if (location.hash === '#admin') showAdminLoginBox();
 </script>
 </body>
 </html>
