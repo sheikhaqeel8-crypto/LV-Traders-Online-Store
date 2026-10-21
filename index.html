@@ -50,6 +50,11 @@ body{background:#f4f6f9;color:#333;padding-top:115px;padding-bottom:80px}
 .thumb{width:56px;height:56px;object-fit:cover;border-radius:6px;background:#eee}
 .flex{display:flex;gap:8px;align-items:center}
 .mini{padding:8px;margin-bottom:6px;font-size:13px}
+#viewStore, #viewMyOrders { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
+#viewStore img, #viewMyOrders img { pointer-events:none; -webkit-touch-callout:none; -webkit-user-drag:none; user-select:none; }
+.img-wrap{position:relative;line-height:0}
+.sold-badge{position:absolute;top:12px;left:12px;z-index:2;background:#c62828;color:#fff;padding:6px 12px;border-radius:6px;font-weight:bold;font-size:13px;line-height:1.2}
+.out-img{opacity:.45}
 </style>
 </head>
 <body>
@@ -169,7 +174,7 @@ const FIREBASE_CONFIG = {
 };
 const ADMIN_WA = "923335180450";
 const ADMIN_EMAIL = "admin@lvtraders.com";   // Firebase Authentication میں یہی ای میل بنائیں
-const CATEGORIES = ['Hats','Turbans','Socks','Warmer Suits','Mufflers','Trousers'];
+const CATEGORIES = ['Hats',"Men's Hats",'Zero Head','Turbans','Socks','Gloves','Warmer Suits','Mufflers','Trousers','Others'];
 /* ====================================================== */
 
 let db = null, auth = null, products = [], customers = [], me = null, cartQty = {};
@@ -366,18 +371,18 @@ function renderProductsFeed() {
   }
   feed.innerHTML = list.map(p => `
     <div class="product-item">
-      <img src="${p.img}" class="product-img" alt="${esc(p.name)}">
+      <div class="img-wrap">${p.inStock === false ? '<div class="sold-badge">OUT OF STOCK</div>' : ''}<img src="${p.img}" class="product-img${p.inStock === false ? ' out-img' : ''}" alt="${esc(p.name)}" draggable="false"></div>
       <div class="product-info">
         <span class="product-cat">${esc(p.category)}</span>
         <div class="product-title">${esc(p.name)}</div>
         <div class="product-desc">${esc(p.desc || '12 Pcs Packet')}</div>
         <div class="price-cart-row">
           <div><div class="price-label">Packet Price</div><div class="price-val">Rs. ${Number(p.price).toLocaleString()}</div></div>
-          <div class="qty-controls">
+          ${p.inStock === false ? '<div style="color:#c62828;font-weight:bold;font-size:14px">⛔ Out of Stock</div>' : `<div class="qty-controls">
             <button type="button" class="qty-btn btn-minus" onclick="changeCartQty('${p.id}',-1)">−</button>
             <div class="qty-display" id="q_${p.id}">${cartQty[p.id] || 0} Pkt</div>
             <button type="button" class="qty-btn btn-plus" onclick="changeCartQty('${p.id}',1)">+</button>
-          </div>
+          </div>`}
         </div>
       </div>
     </div>`).join('');
@@ -385,6 +390,8 @@ function renderProductsFeed() {
 }
 
 function changeCartQty(id, d) {
+  const pr = products.find(x => x.id === id);
+  if (pr && pr.inStock === false) return;
   const n = (cartQty[id] || 0) + d;
   if (n < 0) return;
   cartQty[id] = n;
@@ -395,7 +402,7 @@ function changeCartQty(id, d) {
 
 function recalcBill() {
   let bill = 0, pkts = 0;
-  products.forEach(p => { const q = cartQty[p.id] || 0; bill += q * Number(p.price); pkts += q; });
+  products.forEach(p => { if (p.inStock === false) return; const q = cartQty[p.id] || 0; bill += q * Number(p.price); pkts += q; });
   $('totalBill').innerText = bill.toLocaleString();
   $('totalPkts').innerText = pkts;
 }
@@ -417,6 +424,9 @@ async function saveOrder(items, bill, pkts) {
 }
 
 async function sendOrderOnWhatsApp() {
+  const gone = [];
+  products.forEach(p => { if (p.inStock === false && (cartQty[p.id] || 0) > 0) { gone.push(p.name); cartQty[p.id] = 0; } });
+  if (gone.length) { alert('یہ پراڈکٹس اب دستیاب نہیں ہیں اور کارٹ سے ہٹا دی گئی ہیں: ' + gone.join(', ')); renderProductsFeed(); return; }
   const items = []; let bill = 0, pkts = 0;
   products.forEach(p => {
     const q = cartQty[p.id] || 0;
@@ -509,8 +519,10 @@ function renderAdminLists() {
     <div class="row-item">
       <div class="flex">
         <img class="thumb" src="${p.img}" alt="">
-        <div style="flex:1"><b>${esc(p.name)}</b><br><small>${esc(p.category)}</small></div>
+        <div style="flex:1"><b>${esc(p.name)}</b><br><small>${esc(p.category)}</small>${p.inStock === false ? '<br><small style="color:#c62828;font-weight:bold">⛔ Out of Stock</small>' : ''}</div>
       </div>
+      ${catRowHtml(p)}
+      ${stockRowHtml(p)}
       <div class="flex" style="margin-top:8px">
         <input type="text" class="input-field mini" style="margin:0" id="nm_${p.id}" value="${esc(p.name)}">
         <button type="button" class="sm-btn" style="background:#6a1b9a;white-space:nowrap" onclick="updateName('${p.id}')">Save Name</button>
@@ -565,6 +577,40 @@ async function deleteCustomer(id) {
   if (!confirm('اس کسٹمر کو ہٹا دیں؟')) return;
   try { await db.collection('customers').doc(id).delete(); }
   catch (e) { alert('Error: ' + (e.code || e.message)); }
+}
+function catRowHtml(p) {
+  const list = CATEGORIES.indexOf(p.category) >= 0 ? CATEGORIES : CATEGORIES.concat([p.category]);
+  return `<div class="flex" style="margin-top:8px">
+    <select class="input-field mini" style="margin:0" id="ct_${p.id}">${list.map(c => '<option' + (c === p.category ? ' selected' : '') + '>' + esc(c) + '</option>').join('')}</select>
+    <button type="button" class="sm-btn" style="background:#6a1b9a;white-space:nowrap" onclick="updateCategory('${p.id}')">Save Category</button>
+  </div>`;
+}
+function stockRowHtml(p) {
+  const out = p.inStock === false;
+  return `<div class="flex" style="margin-top:8px;flex-wrap:wrap">
+    <button type="button" class="sm-btn" style="background:#1976d2" onclick="document.getElementById('im_${p.id}').click()">🖼 Change Image</button>
+    <input type="file" id="im_${p.id}" accept="image/*" style="display:none" onchange="changeProductImage('${p.id}',this)">
+    <button type="button" class="sm-btn" style="background:${out ? '#2e7d32' : '#ef6c00'}" onclick="toggleStock('${p.id}',${out ? 'true' : 'false'})">${out ? '✔ Mark In Stock' : '⛔ Mark Out of Stock'}</button>
+  </div>`;
+}
+async function updateCategory(id) {
+  const v = $('ct_' + id).value;
+  try { await db.collection('products').doc(id).update({ category: v }); alert('کیٹیگری محفوظ ہو گئی۔'); }
+  catch (e) { alert('Error: ' + (e.code || e.message)); }
+}
+async function toggleStock(id, val) {
+  try { await db.collection('products').doc(id).update({ inStock: val }); }
+  catch (e) { alert('Error: ' + (e.code || e.message)); }
+}
+async function changeProductImage(id, input) {
+  const f = input.files && input.files[0];
+  if (!f) return;
+  try {
+    const data = await compressImage(f);
+    await db.collection('products').doc(id).update({ img: data });
+    alert('تصویر بدل گئی۔');
+  } catch (e) { alert('تصویر نہیں بدل سکی: ' + (e.code || e.message)); }
+  input.value = '';
 }
 async function updateName(id) {
   const v = $('nm_' + id).value.trim();
@@ -654,6 +700,10 @@ async function publishAllProducts() {
   } catch (e) { alert('Publish نہیں ہو سکا: ' + (e.code || e.message)); }
   btn.disabled = false; btn.innerText = '🚀 Publish All to Live Store';
 }
+
+/* ---------- Image save protection (long-press / right-click / drag) ---------- */
+document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('#viewStore, #viewMyOrders')) e.preventDefault(); });
+document.addEventListener('dragstart', e => { if (e.target && e.target.tagName === 'IMG' && e.target.closest('#viewStore, #viewMyOrders')) e.preventDefault(); });
 
 /* ---------- Start ---------- */
 initFirebase();
